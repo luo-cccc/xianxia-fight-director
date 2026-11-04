@@ -1,0 +1,222 @@
+{
+  "version": "1.2",
+  "review_date": "2026-10-31",
+  "policy": "独立编写；不复制许可不明正文代码或案例；MIT仅限其证据范围",
+  "sources": [
+    {
+      "archive": "xuanhuan-combat-director-main.zip",
+      "sha256": "cbdc06fdcde08d8528c00a0f3688a4c2ccaeb7a308537f2f98a2f137102f7e7c",
+      "members": [
+        {
+          "path": "xuanhuan-combat-director-main/xuanhuan-combat-director/SKILL.md",
+          "sha256": "e50a12a472779b41575b14b0bd4b6eb100ec7c2e100ce8500071583976f25321"
+        },
+        {
+          "path": "xuanhuan-combat-director-main/xuanhuan-combat-director/references/06-martial-and-magic-arsenal.md",
+          "sha256": "60bcd4fc7076e7b62c5307c910b107206557ddab77b987ffa9f60f13a36ee012"
+        }
+      ],
+      "target_files": [
+        "references/cultivation-mechanics.md"
+      ],
+      "adoption": "method_reference_only",
+      "copied_text_or_code": false,
+      "license_evidence": "未发现顶层许可证；方法参考，不复制正文"
+    },
+    {
+      "archive": "seedance-2-5-fight-director-main.zip",
+      "sha256": "13bd808cd4e03734ba3ee6c44285ad9d1ad40d285a29e1cd500c88d25d7b6055",
+      "members": [
+        {
+          "path": "seedance-2-5-fight-director-main/SKILL.md",
+          "sha256": "34acac19b88f85ae05b9b7f995744543992d62ee6b08561be3b6e879781bcaa7"
+        },
+        {
+          "path": "seedance-2-5-fight-director-main/references/core-engine.md",
+          "sha256": "6315937efd414de392aa00d169df8651208d90da269fd85de68382c523dbf802"
+        }
+      ],
+      "target_files": [
+        "SKILL.md",
+        "references/combat-design.md"
+      ],
+      "adoption": "method_reference_only",
+      "copied_text_or_code": false,
+      "license_evidence": "未发现顶层许可证；方法参考，不复制正文与平台画像"
+    },
+    {
+      "archive": "fight-prompt-director-main.zip",
+      "sha256": "40eda1e687950eef145c3c8d7bf6a18a1b1a3ce7bcf3dc06b31d223aed79435f",
+      "members": [
+        {
+          "path": "fight-prompt-director-main/SKILL.md",
+          "sha256": "7b71f49f7978fb2ce34072304d0e96419ca06640e1df7c0826b24ef115599a2a"
+        },
+        {
+          "path": "fight-prompt-director-main/references/diagnostics.md",
+          "sha256": "af8f79ea3e03e2b6b280653d35580c15fa69c6eddf2998fd69ed983782ff316a"
+        }
+      ],
+      "target_files": [
+        "SKILL.md",
+        "references/review-and-repair.md"
+      ],
+      "adoption": "method_reference_only",
+      "copied_text_or_code": false,
+      "license_evidence": "顶层MIT；方法参考，无逐字正文复制"
+    },
+    {
+      "archive": "cinematic-fight-prompt-main.zip",
+      "sha256": "8e5cbb8c6057b2b8ae3dca586d1fc06c0a7229bfd9dc1c7f80ab43253fda449e",
+      "members": [
+        {
+          "path": "cinematic-fight-prompt-main/.codex/skills/cinematic-fight-prompt/SKILL.md",
+          "sha256": "990f226896cec6f69d231c6a20e28f50df0d1835cf974d9bb67bb975a4cd7de7"
+        }
+      ],
+      "target_files": [
+        "references/camera-and-vfx.md",
+        "references/assets-and-keyframes.md"
+      ],
+      "adoption": "method_reference_only",
+      "copied_text_or_code": false,
+      "license_evidence": "顶层MIT；方法参考，无逐字正文复制"
+    },
+    {
+      "archive": "manju-laoli-skill-main.zip",
+      "sha256": "8b0bad12caf22c0835fc53ecbde232ebfb3bad67d6bab903060caa0561b32293",
+      "members": [
+        {
+          "path": "manju-laoli-skill-main/short-drama-director/scripts/project_bundle.py",
+          "sha256": "705c2ca638d711cae87433749adf7bbea5e233e0f2b85ca7db25a44611c4c647"
+        },
+        {
+          "path": "manju-laoli-skill-main/short-drama-director/references/project-bundle-contract.md",
+          "sha256": "e4df119af1f92ab13f7bc1cc1f34c715eb1faf4529ddf75e7fe4fe46a044e2ed"
+        },
+        {
+          "path": "manju-laoli-skill-main/sd-xuanhuan-engine/SKILL.md",
+          "sha256": "3b0f88c2e668d2165ae17147dd348f4191f5f9bcb050ed91c992c228603e1307"
+        }
+      ],
+      "target_files": [
+        "scripts/combat_plan.py",
+        "references/delivery-contract.md"
+      ],
+      "adoption": "method_reference_only",
+      "copied_text_or_code": false,
+      "license_evidence": "顶层MIT；参考轻量校验与导出设计，独立实现；玄幻继承部分不复制"
+    },
+    {
+      "archive": "combat-director-master.zip",
+      "sha256": "011bb654ec485b3dde4e55df527d4fefe0ecf0ae09fc0ad110166661c49e53df",
+      "members": [
+        {
+          "path": "combat-director-master/skills/combat-director/references/contract.md",
+          "sha256": "076eb273bd90550adc6bd36734c0469102ce560a7a7f8c19b88b31e65ba2d079"
+        },
+        {
+          "path": "combat-director-master/skills/combat-director/references/movement-and-projectiles.md",
+          "sha256": "231750f95ba24073c676b6227e7433572f856cd42a11a0fa5c3bb1427248d791"
+        }
+      ],
+      "target_files": [
+        "references/continuity-and-timing.md",
+        "references/cultivation-mechanics.md"
+      ],
+      "adoption": "method_reference_only",
+      "copied_text_or_code": false,
+      "license_evidence": "未发现顶层许可证；Arvin MIT仅覆盖其作品；方法参考，不复制正文源码"
+    },
+    {
+      "archive": "AIGC_202608_fight_videos-main.zip",
+      "sha256": "0574afc7e2ee3574633e9a61e3b9502c077c99b6f90811233f4510262961f743",
+      "members": [
+        {
+          "path": "AIGC_202608_fight_videos-main/scripts/prompt_compiler.py",
+          "sha256": "58913b5a701d5f353e028a6e8d5408113ad63e89da4992a5462bbccf6997cf3d"
+        },
+        {
+          "path": "AIGC_202608_fight_videos-main/references/medium-geometry-combat-grammar.md",
+          "sha256": "16241ac1e10b7d96e1d86ee0c408fc0cc6f0b2f8bae6b674e9d785c567833f5a"
+        }
+      ],
+      "target_files": [
+        "references/cultivation-mechanics.md",
+        "references/delivery-contract.md"
+      ],
+      "adoption": "method_reference_only",
+      "copied_text_or_code": false,
+      "license_evidence": "未发现顶层许可证；嵌套MIT不覆盖全包；方法参考，不复制编译器或案例"
+    }
+  ],
+  "web_review_date": "2026-11-04",
+  "web_sources": [
+    {
+      "repository": "62656456/ai-film-skills",
+      "url": "https://github.com/62656456/ai-film-skills",
+      "path": "docs/skills/zh-CN/character-asset.md",
+      "commit": "35d071d8a40ad7a62887efca77eccf72370d5951",
+      "sha256": "9f3c07ccbd5e0d8ff23e14f79d9f6ddf469451325052001defc9f4644f9a1db9",
+      "adoption": "method_reference_only",
+      "copied_text_or_code": false,
+      "method": "稳定身份与可变状态分离，资产图姿态不锁定后续镜头",
+      "target_files": ["SKILL.md", "references/assets-and-keyframes.md", "references/delivery-contract.md"],
+      "license_evidence": "仓库顶层标示Apache-2.0；本次只参考方法，未复制正文或代码"
+    },
+    {
+      "repository": "liyue-aigc/xianxia-cinematic-video-director",
+      "url": "https://github.com/liyue-aigc/xianxia-cinematic-video-director",
+      "path": "README.md",
+      "commit": "e19620041ee3aac87c17e91a8507fd01b66ff0a4",
+      "sha256": "f8daf6483ef39acfabf1b7d21d4e816e4d0283eef08488019ef8a534688b53d2",
+      "adoption": "method_reference_only",
+      "copied_text_or_code": false,
+      "method": "逐镜起止姿态、身体支点、力传递和环境反馈",
+      "target_files": ["SKILL.md", "references/camera-and-vfx.md", "references/continuity-and-timing.md", "references/review-and-repair.md"],
+      "license_evidence": "本次未确认完整许可范围；仅方法参考，不复制正文、源码或受控内容"
+    },
+    {
+      "repository": "liyue-aigc/xianxia-visual-director",
+      "url": "https://github.com/liyue-aigc/xianxia-visual-director",
+      "path": "README.md",
+      "commit": "bd886174f4d84659f2381c4f5baa610003c5bdda",
+      "sha256": "ef777f16b3c1d59e5f984dfa488311100d41eecb689e459e9285e4632c083dc5",
+      "adoption": "method_reference_only",
+      "copied_text_or_code": false,
+      "method": "巨物同框尺度、空间层次和风向一致性，按场景需要使用",
+      "target_files": ["references/assets-and-keyframes.md", "references/camera-and-vfx.md", "references/continuity-and-timing.md"],
+      "license_evidence": "本次未确认完整许可范围；仅方法参考，不复制正文、源码或受控内容"
+    },
+    {
+      "repository": "qualsenWeb/fight-video-create-skill",
+      "url": "https://github.com/qualsenWeb/fight-video-create-skill",
+      "path": "README.md",
+      "commit": "8a5afd27822ebef540f2669c877cabeffa62256b",
+      "sha256": "4962a32b80dae4b5e4d25076d41e89e5891398c2aef97361eda956262cb73a79",
+      "adoption": "method_reference_only",
+      "copied_text_or_code": false,
+      "method": "从任务与条件选择可见动作，攻防回应和衔接；资料检索仅为可选增强",
+      "target_files": ["references/combat-design.md"],
+      "license_evidence": "未读取加密资料；仅参考公开README的方法，不复制资料库、正文或源码"
+    }
+  ],
+  "original_files": [
+    "SKILL.md",
+    "README.md",
+    "references/*.md",
+    "scripts/combat_plan.py",
+    "tests/test_combat_plan.py",
+    "examples/*.json"
+  ],
+  "relationships": [
+    "manju玄幻模块声明继承xuanhuan，部分参考文件字节相同，作为同一来源家族去重",
+    "AIGC归档含旧版manju，嵌套许可不覆盖其原创总项目"
+  ],
+  "excluded": [
+    "上游图片视频与第三方角色素材",
+    "大型案例与学习语料",
+    "平台能力快照与API实现",
+    "上游未明确许可的正文与源码"
+  ]
+}
