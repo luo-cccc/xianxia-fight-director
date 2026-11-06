@@ -67,6 +67,58 @@ def make_project():
     }
 
 
+def make_craft_project():
+    """The same plan upgraded to 1.2, satisfying every craft requirement."""
+    project = make_project()
+    project["schema_version"] = "1.2"
+    lights = ["晴冷顶光压住两人，无术法光源主导",
+              "剑锋微光成为画面主光，体修半边入影",
+              "剑锋微光仍主导，断碑背面全暗",
+              "顶光回到两人之间，术法光源退去"]
+    risks = ("low", "low", "high", "low")
+    for shot, light, risk in zip(project["shots"], lights, risks):
+        shot["light"] = light
+        shot["risk"] = risk
+        shot["execution"]["light"] = light
+        if risk == "high":
+            shot["fallback"] = "改为侧向中景只拍剑锋与护臂接点，断碑留前景虚焦，世界状态不变"
+    project["beats"][1]["marks"] = ["pivotal", "adaptation"]
+    project["beats"][2]["marks"] = ["breath"]
+    project["scene"]["attrition"] = [
+        {"id": "mark_scuff", "mark": "台面两道擦痕与散石", "from_beat": "beat_open",
+         "consequence": "后续退步不能落在擦痕内侧，脚底会滑"},
+    ]
+    project["cost"] = [
+        {"id": "cost_edge", "owner": "hero", "item": "剑刃近护手处一处缺口", "from_beat": "beat_open",
+         "irreversible": True, "consequence": "此后格挡只能用剑脊，缺口侧不再承力"},
+        {"id": "cost_arm", "owner": "opponent", "item": "护臂外层铜片", "from_beat": "beat_2",
+         "irreversible": False, "consequence": "铜片变形后抬臂变慢，收势时仍可活动"},
+    ]
+    project["knowledge"] = [
+        {"id": "know_block", "holder": "opponent", "belief": "剑修仍能用完整剑刃格挡",
+         "truth": "剑刃已有缺口，只能用剑脊承力", "from_beat": "beat_open",
+         "resolved_by": "beat_2", "cue": "擦痕上的金属碎屑先于缺口被看见"},
+    ]
+    near, far = ["arena", "hero", "opponent"], ["arena", "hero", "opponent", "late_prop"]
+    project["keyframes"] = [
+        {"id": "frame_0", "shot_id": "shot_0", "time_sec": 0, "role": "single",
+         "asset_ids": near[:], "state": "双方隔台对峙", "prompt": "隔台对峙的静图，顶光压住两人"},
+        {"id": "frame_1", "shot_id": "shot_1", "time_sec": 4, "role": "single",
+         "asset_ids": near[:], "state": "剑锋压住护臂", "prompt": "剑锋压住护臂的静图，剑锋微光为主光"},
+        {"id": "frame_handoff", "shot_id": "shot_1", "time_sec": 8, "role": "handoff",
+         "asset_ids": near[:], "state": "双方僵持于台缘", "prompt": "台缘僵持的可复现静图：双脚落定、接点静止、轮廓完整"},
+        {"id": "frame_prep", "shot_id": "shot_2", "time_sec": 8.5, "role": "prep",
+         "asset_ids": far[:], "state": "断碑滑近前的预备姿态", "prompt": "决胜接点前的预备静图，重心已压低"},
+        {"id": "frame_contact", "shot_id": "shot_2", "time_sec": 10, "role": "contact",
+         "asset_ids": far[:], "state": "断碑抵住两人身后", "prompt": "决胜接触瞬间静图，接点与受力方向清楚"},
+        {"id": "frame_result", "shot_id": "shot_2", "time_sec": 11.5, "role": "result",
+         "asset_ids": far[:], "state": "断碑挡住退路", "prompt": "接触结果静图：退路被挡，碎石已落定"},
+        {"id": "frame_3", "shot_id": "shot_3", "time_sec": 12, "role": "single",
+         "asset_ids": far[:], "state": "断碑挡住退路", "prompt": "收势前的静图，顶光回到两人之间"},
+    ]
+    return project
+
+
 class PlanTests(unittest.TestCase):
     def setUp(self):
         self.project = make_project()
@@ -78,7 +130,8 @@ class PlanTests(unittest.TestCase):
 
     def test_all_examples_and_render(self):
         examples = sorted((ROOT / "examples").glob("*.json"))
-        self.assertEqual(3, len(examples))
+        self.assertEqual(4, len(examples))
+        self.assertEqual({"1.2"}, {plan.load_project(path)["schema_version"] for path in examples})
         for path in examples:
             with self.subTest(example=path.name):
                 project = plan.load_project(path)
@@ -99,6 +152,18 @@ class PlanTests(unittest.TestCase):
                 for shot in project["shots"]:
                     for cue in shot["execution"]["cues"]:
                         self.assertIn(cue["text"], video)
+
+    def test_published_directories_match_current_render(self):
+        for path in sorted((ROOT / "examples").glob("*.json")):
+            published = path.with_suffix("")
+            with self.subTest(example=path.name):
+                self.assertTrue(published.is_dir(), f"缺少已发布目录 {published.name}")
+                docs = plan.render(plan.load_project(path))
+                for name, content in docs.items():
+                    target = published / name
+                    self.assertTrue(target.is_file(), f"{published.name} 缺少 {name}")
+                    self.assertEqual(content, target.read_text(encoding="utf-8"),
+                                     f"{published.name}/{name} 与当前 render 不一致，请重新导出")
 
     def test_duplicate_keys_and_constants(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -176,7 +241,8 @@ class PlanTests(unittest.TestCase):
         self.assertNotIn("此拍跨镜", plan.render(changed)["05-video-prompts.md"])
 
     def test_segment_mapping_and_handoff(self):
-        self.rejects(lambda p: p["segments"][0].update(opening_state="错误"), "首镜起态")
+        self.rejects(lambda p: p["segments"][0].update(opening_state="错误"), "的外层 opening_state 不一致")
+        self.rejects(lambda p: p["segments"][-1].update(closing_state="错误"), "的外层 end_state 不一致")
         self.rejects(lambda p: p["segments"][1].update(opening_state="错误"), "前段终态")
         self.rejects(lambda p: p["segments"][0]["shot_ids"].reverse(), "恰好分配")
 
@@ -240,14 +306,24 @@ class PlanTests(unittest.TestCase):
 
     def test_schema_upgrade_required(self):
         self.assertEqual([], plan.validate(self.project))
-        for version in ("1.0", 1.1, "1.2"):
+        for version in ("1.0", 1.1, 1.2, "1.3", "1.1 "):
             self.rejects(lambda p, version=version: p.update(schema_version=version), "升级")
+
+    def test_one_one_rejects_one_two_fields(self):
+        self.rejects(lambda p: p.update(cost=[]), "仅 1.2 支持该字段")
+        self.rejects(lambda p: p.update(knowledge=[]), "仅 1.2 支持该字段")
+        for change in (lambda p: p["shots"][0].update(light="x"),
+                       lambda p: p["shots"][0].update(risk="low"),
+                       lambda p: p["keyframes"][0].update(role="single"),
+                       lambda p: p["scene"].update(attrition=[]),
+                       lambda p: p["beats"][0].update(marks=["pivotal"])):
+            self.rejects(change, "未知字段")
 
     def test_execution_and_context_required_strict_fields(self):
         self.rejects(lambda p: p["shots"][0].pop("execution"), "缺少字段 execution")
         self.rejects(lambda p: p["segments"][0].pop("prompt_context"), "prompt_context")
         self.rejects(lambda p: p["segments"][0].update(prompt_context=" "), "prompt_context")
-        self.rejects(lambda p: p["segments"][0].update(prompt_context="22秒开始"), "执行文本不得含时间语法")
+        self.rejects(lambda p: p["segments"][0].update(prompt_context="22秒开始"), "不得含阿拉伯数字秒码或冒号时码")
         self.rejects(lambda p: p["shots"][0].update(execution=None), "必须是对象")
         self.rejects(lambda p: p["shots"][0]["execution"].update(extra="x"), "未知字段")
         for key in plan.EXECUTION_FIELDS - {"cues"}:
@@ -396,6 +472,243 @@ class PlanTests(unittest.TestCase):
         self.rejects(lambda p: p["design"].update(viewing_tasks="任务"), "字符串数组")
         self.rejects(lambda p: p["design"].update(viewing_tasks=[""]), "非空字符串")
         self.rejects(lambda p: p["design"].update(viewing_tasks=[]), "数组不能为空")
+
+
+class CraftTests(unittest.TestCase):
+    """1.2 编舞要求：只检查可由结构证明的后果。"""
+
+    def setUp(self):
+        self.project = make_craft_project()
+
+    def rejects(self, change, fragment):
+        changed = copy.deepcopy(self.project)
+        change(changed)
+        errors = plan.validate(changed)
+        self.assertTrue(any(fragment in error for error in errors), errors)
+
+    def test_craft_project_is_valid_and_renders(self):
+        self.assertEqual([], plan.validate(self.project))
+        docs = plan.render(self.project)
+        self.assertEqual(7, len(docs))
+        self.assertEqual(self.project, json.loads(docs["project.json"]))
+
+    def test_every_mark_is_required_once(self):
+        for mark in plan.MARKS:
+            def change(p, mark=mark):
+                for beat in p["beats"]:
+                    if mark in beat.get("marks", []):
+                        beat["marks"] = [x for x in beat["marks"] if x != mark] or None
+                        if beat["marks"] is None:
+                            del beat["marks"]
+            self.rejects(change, f"全场缺少 {mark} 标记节拍")
+        self.rejects(lambda p: p["beats"][1].update(marks=["pivotal", "typo"]), "未知标记")
+        self.rejects(lambda p: p["beats"][1].update(marks=["pivotal", "pivotal"]), "引用不得重复")
+        self.rejects(lambda p: p["beats"][1].update(marks=[]), "数组不能为空")
+
+    def test_pivotal_beat_needs_prep_contact_result_in_order(self):
+        for role in plan.CONTACT_ROLES:
+            self.rejects(lambda p, role=role: p.update(keyframes=[x for x in p["keyframes"] if x["role"] != role]),
+                         f"缺少 {role} 帧")
+        def swap(p):
+            prep = next(x for x in p["keyframes"] if x["role"] == "prep")
+            result = next(x for x in p["keyframes"] if x["role"] == "result")
+            prep["time_sec"], result["time_sec"] = result["time_sec"], prep["time_sec"]
+        self.rejects(swap, "时刻须严格递增")
+
+    def test_breath_beat_must_not_overlap_the_turn(self):
+        self.rejects(lambda p: p["beats"][2].update(marks=["breath", "pivotal"]), "不能同时是关键转折")
+        self.rejects(lambda p: p["beats"][1].update(marks=["pivotal", "adaptation", "breath"]), "不得与关键转折窗口重叠")
+
+    def test_adaptation_beat_needs_the_beat_it_answers(self):
+        self.rejects(lambda p: p["beats"][1].update(requires=[]), "须登记它所回应的已完成前拍")
+
+    def test_segment_boundary_needs_a_reproducible_handoff_frame(self):
+        self.rejects(lambda p: p.update(keyframes=[x for x in p["keyframes"] if x["role"] != "handoff"]),
+                     "段界缺少 handoff 关键帧")
+        self.rejects(lambda p: next(x for x in p["keyframes"] if x["role"] == "handoff").update(time_sec=7.5),
+                     "段界缺少 handoff 关键帧")
+        def reassign(p):
+            frame = next(x for x in p["keyframes"] if x["role"] == "handoff")
+            frame["shot_id"] = "shot_2"
+        self.rejects(reassign, "须归属前段末镜")
+
+    def test_light_must_change_somewhere(self):
+        def flatten(p):
+            for shot in p["shots"]:
+                shot["light"] = "晴冷顶光压住两人，无术法光源主导"
+        self.rejects(flatten, "全场光照登记完全相同")
+        self.assertEqual([], plan.validate(self.single_shot_project()),
+                         "单镜方案没有第二个镜头可比，不应触发光照互异判据")
+
+    def single_shot_project(self):
+        """Collapse the fixture to one shot in one segment; craft rules must still pass."""
+        project = copy.deepcopy(self.project)
+        first, last = project["shots"][0], project["shots"][-1]
+        project["shots"] = [{
+            "id": "solo_shot", "start": 0, "end": project["duration_sec"],
+            "beat_ids": [beat["id"] for beat in project["beats"]],
+            "asset_ids": ["arena", "hero", "opponent", "late_prop"],
+            "opening_state": first["opening_state"], "end_state": last["end_state"],
+            "camera": "原稿机位", "effects": "原稿特效", "sound": "原稿声音",
+            "light": first["light"], "risk": "low",
+            "execution": {"opening_state": first["execution"]["opening_state"],
+                          "end_state": last["execution"]["end_state"],
+                          "camera": "侧面中景", "effects": "剑锋微光贴住接触点",
+                          "light": "顶光压住两人", "sound": "金属摩擦与足底擦地",
+                          "cues": [{"start": 0, "end": project["duration_sec"],
+                                    "text": "单镜覆盖全场窗口动作，维持已有接触相位"}]},
+        }]
+        project["segments"] = [{"id": "solo_segment", "shot_ids": ["solo_shot"],
+                               "opening_state": first["opening_state"], "closing_state": last["end_state"],
+                               "prompt_context": "单镜单段：石台平坦，剑锋与护臂接触后持续承力"}]
+        for frame in project["keyframes"]:
+            frame["shot_id"] = "solo_shot"
+        return project
+
+    def test_two_beat_floor_is_satisfiable(self):
+        """1.2 的硬下限：两拍即可满足九条后果，一拍不行。"""
+        project = self.single_shot_project()
+        project["beats"] = [x for x in project["beats"] if x["id"] in ("beat_open", "beat_2")]
+        project["beats"][0].update(start=0, end=8, marks=["breath"], requires=[])
+        project["beats"][1].update(start=8, end=project["duration_sec"],
+                                   marks=["pivotal", "adaptation"], requires=["beat_open"])
+        project["shots"][0]["beat_ids"] = ["beat_open", "beat_2"]
+        project["scene"]["attrition"][0]["from_beat"] = "beat_open"
+        for entry in project["cost"]:
+            entry["from_beat"] = "beat_open"
+        del project["knowledge"]
+        keep = {"frame_prep", "frame_contact", "frame_result"}
+        project["keyframes"] = [x for x in project["keyframes"] if x["id"] in keep]
+        for frame, moment in zip(sorted(project["keyframes"], key=lambda x: x["time_sec"]), (9.0, 11.0, 13.0)):
+            frame["time_sec"] = moment
+        self.assertEqual([], plan.validate(project), "两拍方案应当合法")
+        single = copy.deepcopy(project)
+        single["beats"] = single["beats"][:1]
+        single["beats"][0]["end"] = single["duration_sec"]
+        single["beats"][0]["marks"] = ["pivotal", "adaptation"]
+        single["shots"][0]["beat_ids"] = ["beat_open"]
+        self.assertTrue(any("缺少 breath" in e for e in plan.validate(single)),
+                        "单拍方案无法同时承担呼吸拍与关键转折，应被拒绝")
+
+    def test_single_segment_needs_no_handoff_frame(self):
+        project = self.single_shot_project()
+        project["keyframes"] = [x for x in project["keyframes"] if x["role"] != "handoff"]
+        self.assertEqual([], plan.validate(project),
+                         "只有一个制作段时没有段界，不应要求 handoff 帧")
+        self.rejects(lambda p: p["shots"][0].update(light=" "), ".light")
+        self.rejects(lambda p: p["shots"][0].pop("light"), "缺少字段 light")
+        self.rejects(lambda p: p["shots"][0]["execution"].update(light="推压22秒"), "不得含阿拉伯数字秒码")
+
+    def test_terrain_must_degrade_before_the_turn(self):
+        self.rejects(lambda p: p["scene"].update(attrition=[]), "非空战场累积痕迹数组")
+        self.rejects(lambda p: p["scene"].pop("attrition"), "缺少字段 attrition")
+        self.rejects(lambda p: p["scene"]["attrition"][0].update(from_beat="beat_3"),
+                     "没有任何战场痕迹在关键转折之前形成")
+        self.rejects(lambda p: p["scene"]["attrition"][0].update(from_beat="missing"), "未知节拍引用")
+        self.rejects(lambda p: p["scene"]["attrition"][0].update(id="hero"), "ID全场重复")
+
+    def test_cost_must_be_paid_by_both_sides_and_one_irreversible(self):
+        self.rejects(lambda p: p.update(cost=[]), "战斗不得零支出收场")
+        self.rejects(lambda p: p.pop("cost"), "非空代价账目")
+        def reversible(p):
+            for entry in p["cost"]:
+                entry["irreversible"] = False
+        self.rejects(reversible, "全场至少一项不可逆支出")
+        self.rejects(lambda p: p["cost"][1].update(owner="hero"), "代价集中在同一方")
+        self.rejects(lambda p: p["cost"][0].update(owner="arena"), "须引用行动主体资产")
+        self.rejects(lambda p: p["cost"][0].update(irreversible="true"), "必须是布尔值")
+        self.rejects(lambda p: p["cost"][0].update(from_beat="missing"), "未知节拍引用")
+
+    def test_knowledge_track_needs_a_real_gap(self):
+        self.rejects(lambda p: p["knowledge"][0].update(truth=p["knowledge"][0]["belief"]), "即无信息差")
+        self.rejects(lambda p: p["knowledge"][0].update(resolved_by="beat_open"), "不能等于建立误判的同一拍")
+        self.rejects(lambda p: p["knowledge"][0].update(from_beat="beat_3"), "识破拍早于误判建立拍")
+        self.rejects(lambda p: p.update(knowledge=[]), "无信息差则省略该字段")
+        changed = copy.deepcopy(self.project)
+        del changed["knowledge"]
+        self.assertEqual([], plan.validate(changed))
+        changed = copy.deepcopy(self.project)
+        del changed["knowledge"][0]["resolved_by"]
+        self.assertEqual([], plan.validate(changed))
+        self.assertIn("本场未识破", plan.render(changed)["01-design.md"])
+
+    def test_high_risk_shot_needs_a_preauthorized_fallback(self):
+        self.rejects(lambda p: p["shots"][2].pop("fallback"), "高风险镜头须预授权保底构图")
+        self.rejects(lambda p: p["shots"][0].update(fallback="低风险却写保底"), "低风险镜头不登记保底构图")
+        self.rejects(lambda p: p["shots"][2].update(risk="unknown"), "仅支持 low、high")
+        self.rejects(lambda p: p["shots"][2].update(fallback="改用保底构图撑22秒"), "不得含阿拉伯数字秒码")
+
+    def test_keyframe_role_is_strict(self):
+        self.rejects(lambda p: p["keyframes"][0].update(role="keyframe"), "仅支持")
+        self.rejects(lambda p: p["keyframes"][0].pop("role"), "缺少字段 role")
+
+    def test_internal_ids_must_not_leak_into_copyable_text(self):
+        for leaked in ("hero", "beat_open", "shot_0", "segment_open", "frame_0",
+                       "cost_edge", "know_block", "mark_scuff"):
+            with self.subTest(leaked=leaked):
+                self.rejects(lambda p, x=leaked: p["shots"][0]["execution"]["cues"][0].update(text="承接 " + x + " 的相位"),
+                             "不得含内部 ID " + leaked)
+        self.rejects(lambda p: p["segments"][0].update(prompt_context="本段依赖 beat_open 的结果"), "不得含内部 ID")
+        self.rejects(lambda p: p["keyframes"][0].update(prompt="静图，见 cost_edge"), "不得含内部 ID")
+        self.rejects(lambda p: p["shots"][2].update(fallback="改用保底，承接 shot_1"), "不得含内部 ID")
+        for key in ("opening_state", "end_state", "camera", "effects", "sound", "light"):
+            self.rejects(lambda p, k=key: p["shots"][0]["execution"].update({k: "参照 frame_handoff 的姿态"}),
+                         "不得含内部 ID")
+
+    def test_keyframe_prompt_rejects_time_syntax(self):
+        for value in ("全场 2.4 秒的静图", "到0:12的姿态", "推压22秒后的接点"):
+            self.rejects(lambda p, v=value: p["keyframes"][0].update(prompt=v), "静图提示词不得含阿拉伯数字秒码")
+        changed = copy.deepcopy(self.project)
+        changed["keyframes"][0]["prompt"] = "静图：退三步、两柄戟压住巷口，离石面一米二"
+        self.assertEqual([], plan.validate(changed), "计数与长度数字不应被时码规则拦下")
+
+    def test_missing_frame_on_boundary_shot_names_the_handoff_duty(self):
+        boundary = self.project["segments"][0]["shot_ids"][-1]
+        self.rejects(lambda p: p.update(keyframes=[x for x in p["keyframes"] if x["shot_id"] != boundary]),
+                     "该镜是段界所在的前段末镜")
+        inner = self.project["segments"][1]["shot_ids"][0]
+        changed = copy.deepcopy(self.project)
+        changed["keyframes"] = [x for x in changed["keyframes"] if x["shot_id"] != inner]
+        self.assertTrue(any("镜头缺少关键帧 " + inner in e and "段界" not in e for e in plan.validate(changed)),
+                        "非段界镜头不应被加上交接帧提示")
+
+    def test_craft_fields_reach_the_right_documents(self):
+        docs = plan.render(self.project)
+        board, video = docs["03-storyboard.md"], docs["05-video-prompts.md"]
+        design, assets = docs["01-design.md"], docs["02-assets.md"]
+        self.assertIn("光照与归属：" + self.project["shots"][1]["light"], board)
+        self.assertIn("光照：" + self.project["shots"][1]["light"], video)
+        self.assertIn("标记 pivotal, adaptation", board)
+        self.assertIn("生成风险：高。保底构图：", board)
+        self.assertIn("若一次生成未得到可用结果，改用保底构图", video)
+        self.assertIn(self.project["shots"][2]["fallback"], video)
+        self.assertIn("段界交接静图（本段末帧，亦为下段首帧条件）", video)
+        self.assertIn("段界交接帧", docs["04-keyframes.md"])
+        self.assertIn("接触帧", docs["04-keyframes.md"])
+        self.assertIn("剑刃近护手处一处缺口", design)
+        self.assertIn("此后格挡只能用剑脊", design)
+        self.assertIn("台面两道擦痕与散石", assets)
+        self.assertIn("以为：剑修仍能用完整剑刃格挡", design)
+        self.assertIn("代价结算", docs["06-review.md"])
+        self.assertIn("信息差结算", docs["06-review.md"])
+
+    def test_craft_documents_keep_director_data_out_of_video(self):
+        video = plan.render(self.project)["05-video-prompts.md"]
+        for group in ("assets", "beats", "shots", "segments", "keyframes"):
+            for item in self.project[group]:
+                self.assertNotIn(item["id"], video)
+        for group in ("cost", "knowledge"):
+            for item in self.project[group]:
+                self.assertNotIn(item["id"], video)
+        for entry in self.project["scene"]["attrition"]:
+            self.assertNotIn(entry["id"], video)
+        for entry in self.project["cost"]:
+            self.assertNotIn(entry["consequence"], video)
+        for entry in self.project["knowledge"]:
+            self.assertNotIn(entry["truth"], video)
+            self.assertNotIn(entry["belief"], video)
+        self.assertNotIn("标记 pivotal", video)
+        self.assertNotIn("生成风险：高。保底构图：", video)
 
 
 if __name__ == "__main__":

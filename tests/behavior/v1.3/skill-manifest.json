@@ -1,0 +1,14 @@
+{
+  "note": "v1.3 受控试用开始时冻结的规则指纹；试用期间这些文件未被改动。重跑本脚本可核对。",
+  "files": {
+    "SKILL.md": "a1ef57f559dd65f3652e87afc6e7b2867f99df4f86dae406807c68b314012493",
+    "references/assets-and-keyframes.md": "2ad374165d1f12fb58c408e94ae6f79ce87cf458837a85b7f1d2578d7fcd3c88",
+    "references/camera-and-vfx.md": "7f9e1816e23602e8c5d9587beb681ff3df7bb6b668709018f5a7ab856f748979",
+    "references/combat-design.md": "9497fea491eb1137318dc84fb33f60719b0963a5b2dd59f02af3957505cda685",
+    "references/continuity-and-timing.md": "24bb8954c7b988d6973ba7b2c022e7dc3a6d1fe2a946b68019f177a20d07599b",
+    "references/cultivation-mechanics.md": "95cd9f61cca11fb650e0ba643c707d388bdec327986ca6ca3a991723a4fbc913",
+    "references/delivery-contract.md": "099254a662ea06c6b72a660856978aba59edf0918c5a8c98a71fcfe28c44d966",
+    "references/review-and-repair.md": "e930d128d3a406d41db16211114aca2a4413147724d754e2e194950c4beecca9",
+    "references/spectacle-and-style.md": "65a1d1ae62753c039b1f3fd92ec5417145aa6304d9fdae721987d8988307c276"
+  }
+}
