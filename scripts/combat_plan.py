@@ -17,11 +17,208 @@ EXECUTION_TIME = re.compile(r"[0-9]+(?:\.[0-9]+)?\s*秒|[0-9]+(?:[:：][0-9]{1,2
 KINDS = {"character", "creature", "scene", "prop", "formation", "manifestation"}
 ACTORS = {"character", "creature", "manifestation"}
 ROOT = {"schema_version", "title", "duration_sec", "aspect_ratio", "style", "assumptions", "constraints", "design", "assets", "scene", "beats", "shots", "segments", "keyframes"}
-VERSIONS = ("1.1", "1.2")
+VERSIONS = ("1.1", "1.2", "1.3")
 MARKS = ("pivotal", "breath", "adaptation")
 ROLES = {"single", "prep", "contact", "result", "handoff"}
 RISKS = {"low", "high"}
 CONTACT_ROLES = ("prep", "contact", "result")
+REALITIES = {"world": "世界实效", "subjective": "主观感知", "editorial": "剪辑表现"}
+
+
+def effect_checks(project, ids):
+    """Validate 1.3 effect references, after the existing battle structure is valid.
+
+    Stage windows describe presentation intent, never model execution guarantees.
+    No prompts or world states are inferred from these definitions.
+    """
+    errors = []
+    assets = {x["id"]: x for x in project["assets"]}
+    beats = {x["id"]: x for x in project["beats"]}
+    shots = {x["id"]: x for x in project["shots"]}
+    frames = {x["id"]: x for x in project["keyframes"]}
+
+    def fail(path, message):
+        errors.append(f"{path}: {message}")
+
+    def obj(value, fields, path, optional=()):
+        if not isinstance(value, dict):
+            fail(path, "必须是对象")
+            return False
+        missing = set(fields) - value.keys()
+        extra = value.keys() - set(fields) - set(optional)
+        if missing:
+            fail(path, "缺少字段 " + ", ".join(sorted(missing)))
+        if extra:
+            fail(path, "未知字段 " + ", ".join(sorted(extra)))
+        return not missing and not extra
+
+    def text(value, path):
+        if not isinstance(value, str) or not value.strip():
+            fail(path, "必须是非空字符串")
+            return False
+        return True
+
+    def strings(value, path, nonempty=False, mapping=None):
+        if not isinstance(value, list):
+            fail(path, "必须是字符串数组")
+            return False
+        valid = True
+        if nonempty and not value:
+            fail(path, "数组不能为空")
+            valid = False
+        for item in value:
+            if not text(item, path):
+                valid = False
+        if not valid:
+            return False
+        if len(set(value)) != len(value):
+            fail(path, "引用不得重复")
+            valid = False
+        if mapping is not None:
+            for item in value:
+                if item not in mapping:
+                    fail(path, "未知引用 " + item)
+                    valid = False
+        return valid
+
+    def number(value, path):
+        try:
+            valid = not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value)
+        except OverflowError:
+            valid = False
+        if not valid:
+            fail(path, "必须是有限数字，不能是布尔值")
+        return valid
+
+    effects = project["effect_specs"]
+    if not isinstance(effects, list):
+        fail("effect_specs", "必须是对象数组，可空")
+        return errors
+    effect_map = {}
+    for i, effect in enumerate(effects):
+        path = f"effect_specs[{i}]"
+        fields = {"id", "name", "families", "applications", "reality", "asset_ids", "summary", "stages"}
+        if not obj(effect, fields, path, {"transitions", "transformation"}):
+            continue
+        key = effect["id"]
+        if text(key, path + ".id"):
+            if not re.fullmatch(r"fx_[A-Za-z0-9][A-Za-z0-9_-]*", key):
+                fail(path + ".id", "效果 ID 须以 fx_ 开头，后接字母或数字，至少四字符")
+            if key in ids:
+                fail(path + ".id", "ID全场重复")
+            ids.add(key)
+            effect_map[key] = effect
+        for field in ("name", "summary"):
+            text(effect[field], path + "." + field)
+        for field in ("families", "applications"):
+            strings(effect[field], path + "." + field, nonempty=True)
+        strings(effect["asset_ids"], path + ".asset_ids", mapping=assets)
+        if not isinstance(effect["reality"], str) or effect["reality"] not in REALITIES:
+            fail(path + ".reality", "仅支持 world、subjective、editorial")
+        stages = effect["stages"]
+        if not isinstance(stages, list) or not stages:
+            fail(path + ".stages", "必须是非空阶段数组")
+        else:
+            for j, stage in enumerate(stages):
+                sp = f"{path}.stages[{j}]"
+                if not obj(stage, {"name", "start", "end", "beat_ids", "keyframe_ids"}, sp):
+                    continue
+                text(stage["name"], sp + ".name")
+                start_ok = number(stage["start"], sp + ".start")
+                end_ok = number(stage["end"], sp + ".end")
+                if start_ok and end_ok and not (0 <= stage["start"] < stage["end"] <= project["duration_sec"] + EPS):
+                    fail(sp, "阶段时间须满足 0 <= start < end <= duration_sec；瞬间用关键帧表达")
+                strings(stage["beat_ids"], sp + ".beat_ids", nonempty=True, mapping=beats)
+                strings(stage["keyframe_ids"], sp + ".keyframe_ids", mapping=frames)
+        if "transitions" in effect:
+            transitions = effect["transitions"]
+            if not isinstance(transitions, list) or not transitions:
+                fail(path + ".transitions", "登记时须为非空转场数组；无则省略")
+            else:
+                for j, transition in enumerate(transitions):
+                    tp = f"{path}.transitions[{j}]"
+                    if not obj(transition, {"from_shot_id", "to_shot_id", "method", "out_condition", "in_condition"}, tp):
+                        continue
+                    for field in ("from_shot_id", "to_shot_id"):
+                        if text(transition[field], tp + "." + field) and transition[field] not in shots:
+                            fail(tp + "." + field, "未知镜头引用")
+                    for field in ("method", "out_condition", "in_condition"):
+                        text(transition[field], tp + "." + field)
+        if "transformation" in effect:
+            transform = effect["transformation"]
+            tp = path + ".transformation"
+            if obj(transform, {"subject_asset_id", "invariants", "allowed_changes"}, tp):
+                subject = transform["subject_asset_id"]
+                if text(subject, tp + ".subject_asset_id"):
+                    if subject not in assets:
+                        fail(tp + ".subject_asset_id", "未知资产引用")
+                    elif isinstance(effect["asset_ids"], list) and subject not in effect["asset_ids"]:
+                        fail(tp + ".subject_asset_id", "变换主体须列入本效果 asset_ids")
+                strings(transform["invariants"], tp + ".invariants", nonempty=True)
+                strings(transform["allowed_changes"], tp + ".allowed_changes", nonempty=True)
+    for i, shot in enumerate(project["shots"]):
+        strings(shot["effect_ids"], f"shots[{i}].effect_ids", mapping=effect_map)
+    if errors:
+        return errors
+
+    def overlap(a, b):
+        return min(a["end"], b["end"]) > max(a["start"], b["start"])
+
+    positions = {shot["id"]: i for i, shot in enumerate(project["shots"])}
+    for i, effect in enumerate(effects):
+        path = f"effect_specs[{i}]"
+        key = effect["id"]
+        bound = [shot for shot in project["shots"] if key in shot["effect_ids"]]
+        if not bound:
+            fail(path, "主要效果未被任何镜头引用")
+        for shot in bound:
+            if not any(overlap(stage, shot) for stage in effect["stages"]):
+                fail(f"shots.{shot['id']}.effect_ids", "效果与镜头没有正时长阶段交集 " + key)
+        for j, stage in enumerate(effect["stages"]):
+            sp = f"{path}.stages[{j}]"
+            active = [shot for shot in bound if overlap(stage, shot)]
+            cursor = stage["start"]
+            for shot in active:
+                if shot["start"] > cursor + EPS:
+                    break
+                cursor = max(cursor, min(shot["end"], stage["end"]))
+            if cursor < stage["end"] - EPS:
+                fail(sp, "引用镜头未完整覆盖效果阶段；画外仍有影响时也须登记 effect_ids")
+            for ref in stage["beat_ids"]:
+                beat = beats[ref]
+                if not overlap(stage, beat):
+                    fail(sp + ".beat_ids", "阶段与节拍没有正时长交集 " + ref)
+                elif not any(ref in shot["beat_ids"] and min(stage["end"], beat["end"], shot["end"]) > max(stage["start"], beat["start"], shot["start"]) for shot in active):
+                    fail(sp + ".beat_ids", "关联节拍未在本效果的镜头窗口中呈现 " + ref)
+            for shot in active:
+                boundaries = [cue[edge] for cue in shot["execution"]["cues"] for edge in ("start", "end")]
+                for moment in (stage["start"], stage["end"]):
+                    if shot["start"] + EPS < moment < shot["end"] - EPS and not any(abs(moment - x) <= EPS for x in boundaries):
+                        fail(sp, f"镜内阶段边界须与 {shot['id']} 的 cue 边界对齐；由作者拆分当前窗口，不自动生成提示词")
+            for ref in stage["keyframe_ids"]:
+                frame = frames[ref]
+                if not stage["start"] - EPS <= frame["time_sec"] <= stage["end"] + EPS:
+                    fail(sp + ".keyframe_ids", "关键帧时刻不在本阶段内 " + ref)
+                if key not in shots[frame["shot_id"]]["effect_ids"]:
+                    fail(sp + ".keyframe_ids", "关键帧所属镜头未登记本效果 " + ref)
+        edges = set()
+        for j, transition in enumerate(effect.get("transitions", [])):
+            tp = f"{path}.transitions[{j}]"
+            source, target = transition["from_shot_id"], transition["to_shot_id"]
+            edge = (source, target)
+            if edge in edges:
+                fail(tp, "同一效果的转场镜头对不得重复")
+            edges.add(edge)
+            if positions[target] != positions[source] + 1:
+                fail(tp, "特效转场须连接按序相邻两镜")
+            if key not in shots[source]["effect_ids"] or key not in shots[target]["effect_ids"]:
+                fail(tp, "转场两镜均须登记本效果")
+            cut = shots[source]["end"]
+            left = any(s["start"] < cut and s["end"] >= cut - EPS for s in effect["stages"])
+            right = any(s["start"] <= cut + EPS and s["end"] > cut for s in effect["stages"])
+            if not left or not right:
+                fail(tp, "转场效果须覆盖切点两侧，不能只在两镜远离切点处出现")
+    return errors
 
 
 def _object(pairs):
@@ -184,12 +381,14 @@ def validate(project):
                 result.append((path, item))
         return result
 
-    if not obj(project, ROOT, "project", {"review", "cost", "knowledge"}):
+    version = project.get("schema_version") if isinstance(project, dict) else None
+    required_root = ROOT | {"effect_specs"} if version == "1.3" else ROOT
+    if not obj(project, required_root, "project", {"review", "cost", "knowledge"}):
         return errors
     version = project["schema_version"]
     if version not in VERSIONS:
-        fail("schema_version", "仅支持字符串版本 1.1 或 1.2；请升级旧版数据并编写镜头 execution 与段 prompt_context，不自动迁移自由文本")
-    craft = version == "1.2"
+        fail("schema_version", "仅支持字符串版本 1.1、1.2 或 1.3；请升级旧版数据并编写镜头 execution 与段 prompt_context，不自动迁移自由文本")
+    craft = version in ("1.2", "1.3")
     if not craft:
         for key in ("cost", "knowledge"):
             if key in project:
@@ -270,6 +469,8 @@ def validate(project):
     if craft:
         shot_fields |= {"light", "risk"}
         frame_fields |= {"role"}
+    if version == "1.3":
+        shot_fields |= {"effect_ids"}
     beats = group("beats", beat_fields, {"marks"} if craft else ())
     shots = group("shots", shot_fields, {"fallback"} if craft else ())
     segments = group("segments", {"id", "shot_ids", "opening_state", "closing_state", "prompt_context"})
@@ -478,7 +679,9 @@ def validate(project):
         seq = [x for _, x in segments]
         for previous in seq[:-1]:
             if isinstance(previous.get("shot_ids"), list) and previous["shot_ids"]:
-                boundary_shots.add(previous["shot_ids"][-1])
+                last_id = previous["shot_ids"][-1]
+                if isinstance(last_id, str) and last_id in shot_map:
+                    boundary_shots.add(last_id)
     for key, count in frame_counts.items():
         if not count:
             extra = "；该镜是段界所在的前段末镜，除本镜至少一帧外还须有一张 handoff 交接帧" if key in boundary_shots else ""
@@ -524,6 +727,8 @@ def validate(project):
                                 fail(path + "." + key, "未知节拍引用")
                         if item["belief"] == item["truth"]:
                             fail(path + ".truth", "所知与实际逐字相同即无信息差；删除该项或写出真实差异")
+    if version == "1.3" and not errors:
+        errors.extend(effect_checks(project, ids))
     leaked = sorted(x for x in ids if len(x) >= 4)
     if leaked:
         def scan(value, path):
@@ -548,6 +753,15 @@ def validate(project):
             scan(segment.get("prompt_context"), path + ".prompt_context")
         for path, frame in frames:
             scan(frame.get("prompt"), path + ".prompt")
+        if version == "1.3":
+            # These fields are printed verbatim into the segment's copyable text.
+            for path, asset in assets:
+                for i, anchor in enumerate(asset["anchors"]):
+                    scan(anchor, f"{path}.anchors[{i}]")
+                scan(asset["name"], path + ".name")
+                if isinstance(asset.get("reference"), dict):
+                    for key, value in asset["reference"].items():
+                        scan(value, f"{path}.reference.{key}")
 
     if craft and not errors:
         craft_checks(project, fail)
@@ -571,10 +785,28 @@ def _bullets(items):
     return "\n".join("- " + x for x in items) if items else "- 无新增项。"
 
 
+def _effect_text(effects):
+    """Director-only register. Never concatenate this into execution prompts."""
+    result = "## 主要特效：视频模型直接生成\n\n阶段是成片编排意图，不能证明模型按时执行。下列资料供导演核对；生成正文仍由各镜 execution 另写。\n\n"
+    for effect in effects:
+        result += f"### {effect['id']} · {effect['name']}\n\n类型：{'、'.join(effect['families'])}。应用：{'、'.join(effect['applications'])}。现实层：{REALITIES[effect['reality']]}。\n\n涉及资产：{', '.join(effect['asset_ids']) or '无独立绑定资产'}。\n\n识别与规则：{effect['summary']}\n\n"
+        for stage in effect["stages"]:
+            result += f"- {stage['name']}｜全场 {_time(stage['start'])}–{_time(stage['end'])}秒｜节拍 {', '.join(stage['beat_ids'])}｜关键帧 {', '.join(stage['keyframe_ids']) or '按需，不补图'}\n"
+        if "transformation" in effect:
+            change = effect["transformation"]
+            result += f"\n变换主体：{change['subject_asset_id']}。\n\n保留项：\n\n{_bullets(change['invariants'])}\n\n允许变化：\n\n{_bullets(change['allowed_changes'])}\n"
+        for transition in effect.get("transitions", []):
+            result += f"\n特效转场：{transition['from_shot_id']} → {transition['to_shot_id']}；方法：{transition['method']}。\n\n出点条件：{transition['out_condition']}\n\n入点条件：{transition['in_condition']}\n"
+        result += "\n"
+    return result
+
+
 def render(project):
     assets = project["assets"]
     beats = {x["id"]: x for x in project["beats"]}
     shots = {x["id"]: x for x in project["shots"]}
+    effects = project.get("effect_specs", [])
+    effect_map = {x["id"]: x for x in effects}
     design = project["design"]
     design_text = f"# {project['title']}：战斗设计\n\n总时长 {_time(project['duration_sec'])} 秒；画幅 {project['aspect_ratio']}。\n\n画风：{project['style']}\n\n"
     for label, items in (("双方目标", design["goals"]), ("本场规则", design["rules"]), ("战术变化", design["turns"]), ("硬约束", project["constraints"]), ("补充假设", project["assumptions"])):
@@ -619,6 +851,8 @@ def render(project):
         result += f"摄影：{shot['camera']}\n\n特效：{shot['effects']}\n\n"
         if "light" in shot:
             result += f"光照与归属：{shot['light']}\n\n"
+        if shot.get("effect_ids"):
+            result += "本镜主要效果：" + "；".join(f"{key}（{effect_map[key]['name']}）" for key in shot["effect_ids"]) + "。\n\n"
         result += f"声音：{shot['sound']}\n\n"
         if "risk" in shot:
             label = "高" if shot["risk"] == "high" else "低"
@@ -626,13 +860,19 @@ def render(project):
             result += f"保底构图：{shot['fallback']}\n\n" if "fallback" in shot else "无需保底构图。\n\n"
         return result + f"关联关键帧：{', '.join(frame_ids)}。\n\n终态：{shot['end_state']}\n\n"
 
-    board = "# 完整分镜\n\n动作拍可以并行；跨镜动作按观察窗口接续。\n\n" + "".join(shot_text(x) for x in project["shots"])
+    board = "# 完整分镜\n\n动作拍可以并行；跨镜动作按观察窗口接续。\n\n"
+    if effects:
+        board += _effect_text(effects)
+    board += "".join(shot_text(x) for x in project["shots"])
     frame_text = "# 关键帧提示词\n\n"
     for frame in project["keyframes"]:
         segment = next(x for x in project["segments"] if frame["shot_id"] in x["shot_ids"])
         offset = shots[segment["shot_ids"][0]]["start"]
         role = ROLE_LABELS.get(frame.get("role"), "")
         frame_text += f"## {frame['id']} · {frame['shot_id']} · 全场 {_time(frame['time_sec'])} 秒{role}\n\n制作段 {segment['id']}，段内 {_time(frame['time_sec']-offset)} 秒。\n\n资产：{', '.join(frame['asset_ids'])}。\n\n瞬间状态：{frame['state']}\n\n静图提示词：{frame['prompt']}\n\n"
+        linked = [effect["name"] + "／" + stage["name"] for effect in effects for stage in effect["stages"] if frame["id"] in stage["keyframe_ids"]]
+        if linked:
+            frame_text += "导演关联效果阶段：" + "；".join(linked) + "。\n\n"
     video = "# 通用导演执行文本\n\n每段可独立复制；段内时间为编排意图，不是逐帧执行保证。本稿未适配特定平台语法。\n\n"
     for index, segment in enumerate(project["segments"], 1):
         segment_shots = [shots[key] for key in segment["shot_ids"]]
@@ -677,6 +917,12 @@ def render(project):
         for entry in project["knowledge"]:
             review += f"- {entry['holder']}：以为「{entry['belief']}」，实际「{entry['truth']}」；{'识破于 ' + entry['resolved_by'] if 'resolved_by' in entry else '本场未识破'}。\n"
         review += "\n识破线索是否可回溯、主客观视角是否分明，属语义审阅。\n\n"
+    if effects:
+        review += "## 特效阶段与生成审阅\n\n结构只检查阶段窗口、引用、镜内 cue 边界与转场邻接；不判断视觉类型、应用结果、变化过程或模型服从程度。\n\n"
+        for effect in effects:
+            linked_shots = [shot["id"] for shot in project["shots"] if effect["id"] in shot["effect_ids"]]
+            review += f"- {effect['id']}｜{effect['name']}｜应用 {'、'.join(effect['applications'])}｜影响镜头 {', '.join(linked_shots)}｜阶段 {len(effect['stages'])}。\n"
+        review += "\n返修从效果事实检查阶段、镜头状态、光照、关键帧和执行正文；保留用户指定的连续变化及关键交互。没有实际视频观察时，动态效果仍待验证。\n\n"
     if "review" in project:
         record = project["review"]
         review += f"## 作者登记的语义审阅（脚本未复核）\n\n范围：{record['scope']}\n\n已修复：\n\n{_bullets(record['fixed'])}\n\n仍需确认：\n\n{_bullets(record['pending'])}\n\n失效与更新：\n\n{_bullets(record['invalidated'])}\n\n验证范围：{record['verification']}\n\n"
@@ -689,7 +935,10 @@ def render(project):
             review += f"来源：{observation['source']}\n\n类型：{observation['kind']}\n\n作者观察：{observation['observation']}\n\n观察局限：{observation['limitations']}\n\n"
     else:
         review += "未登记媒体观察；不能据此推断是否生成或是否已观看。\n\n"
-    board += "## 审阅记录\n\n" + review
+    if project["schema_version"] == "1.3":
+        board += "## 审阅记录\n\n见独立的[检查与承接](06-review.md)。\n"
+    else:
+        board += "## 审阅记录\n\n" + review
     return {"project.json": json.dumps(project, ensure_ascii=False, indent=2, allow_nan=False) + "\n", "01-design.md": design_text, "02-assets.md": asset_text, "03-storyboard.md": board, "04-keyframes.md": frame_text, "05-video-prompts.md": video, "06-review.md": review}
 
 

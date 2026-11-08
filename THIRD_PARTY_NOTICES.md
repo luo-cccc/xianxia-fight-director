@@ -4,6 +4,10 @@
 
 `archive` 是原始 ZIP 文件名，`members` 是包内路径，不是本包文件。文件指纹只用于溯源，不证明质量或授权。
 
+## v1.4 用户提供的方法参考 · 2026-11-08
+
+用户提供的 `AI分镜转场Skill_V2.0_独立完整版.txt` 已读取，读取指纹另存 `sources.json.user_materials`。本轮参考前后状态、素材职责、实际出入点和验证层级的方法，独立编写转场、变身及直接生成规则；未复制附件正文或将附件打包，不把上传文件视为安装或执行授权。二十类视觉特效、应用短例和八个完整场面均为本包原创文字设计，不构成媒体生成或效果成功的证据。
+
 ## v1.2 在线方法参考 · 2026-11-04
 
 新增参考`62656456/ai-film-skills`的人物资产合同，以及`liyue-aigc/xianxia-cinematic-video-director`、`liyue-aigc/xianxia-visual-director`、`qualsenWeb/fight-video-create-skill`的公开README。实际读取文件、提交、SHA-256与本包采用位置单列在`sources.json.web_sources`；没有覆盖以下历史ZIP指纹。
