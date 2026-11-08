@@ -72,6 +72,10 @@
 
 遮挡制造悬念时，用声音、痕迹、反应或揭示恢复因果。新增大效果复查手、器物、节点和接触点是否被遮住；群战保留阵营与友军安全关系。
 
+### 签名特效与制作路线（1.3）
+
+反复出现或承担叙事功能的效果登记进 `vfx`：归属、世界内或呈现层、尺度、功能、外观、生命周期、支出与制作路线。设计先回答四问——谁的、显示什么、花掉什么留下什么、怎么做——八组分类、两层判法与生命周期见 [vfx-language.md](vfx-language.md)，介质与身体反应见 [vfx-environment-and-body.md](vfx-environment-and-body.md)，制作路线与难度见 [vfx-production.md](vfx-production.md)。变身、飞行与意识空间见 [space-time-and-form.md](space-time-and-form.md)，转场见 [transitions.md](transitions.md)。
+
 ## 声音与对白
 
 按本镜需要写环境、动作、施术和接触声；画外事件也须有可感知来源。用材质与机制区分金属碰撞、剑气擦过、符纸燃尽和阵线断裂。音乐跟随用户要求或明确的创作设定，不自动补 BGM。

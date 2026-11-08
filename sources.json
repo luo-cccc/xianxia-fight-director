@@ -201,6 +201,18 @@
       "license_evidence": "未读取加密资料；仅参考公开README的方法，不复制资料库、正文或源码"
     }
   ],
+  "conversation_sources": [
+    {
+      "review_date": "2026-11-08",
+      "source": "用户对话中提供的转场方法（未定位源文件，方法参考、不复制正文、去除平台默认）",
+      "sha256": null,
+      "adoption": "method_reference_only",
+      "copied_text_or_code": false,
+      "method": "转场方法分类（遮挡、匹配、甩镜、声音先导、介质穿越等）与切点条件写法；去除平台默认参数与首尾帧能力假设",
+      "target_files": ["references/transitions.md", "references/delivery-contract.md", "scripts/combat_plan.py"],
+      "license_evidence": "源文件未定位，许可未知；只取方法思路，独立写作，不记录指纹"
+    }
+  ],
   "original_files": [
     "SKILL.md",
     "README.md",

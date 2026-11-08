@@ -1,10 +1,10 @@
-# 交付契约 v1.2
+# 交付契约 v1.3
 
 本契约用于单场战斗的可选工作JSON。日常创作默认自然语言；用户要求存档与导出时使用JSON。数据由创作者编写，工具只检查结构、计算时码与组织文本，不推导动作、不将结构通过等同成片通过。
 
-**当前版本 `1.2`，新建存档默认用它。`1.1` 仍被接受并按原规则校验，用于已有数据回溯，不再是推荐版本。** 1.2 在 1.1 之上只加编舞要求，不改时间语义、不改已有字段含义，也不迁移自由文本。
+**当前版本 `1.3`，新建存档默认用它。`1.2` 与 `1.1` 仍被接受并按原规则校验，用于已有数据回溯，不再是推荐版本。** 1.3 完整继承 1.2 的全部字段与可查后果，只新增四个可选根字段：并行动作线 `tracks`、签名特效 `vfx`、形态切换 `forms`、转场 `transitions`（见文末“1.3 新增”）。1.2 在 1.1 之上只加编舞要求，不改时间语义、不改已有字段含义，也不迁移自由文本。
 
-1.2 新增七组字段：关键帧角色、节拍标记、镜头光照、生成风险与保底构图、战场累积痕迹、代价账目、可选的所知与实际。它们支撑本文末尾那张表里的九条可查后果——七是字段组数，九是后果条数，两个数不要混用。它们存在的理由是：这些要求过去只写在参考里，没有任何可查后果，示例因此可以全部等分镜长、零代价收场、反派不变招。校验器检查的仍只是结构后果，不判断动作是否好看。
+1.2 新增七组字段：关键帧角色、节拍标记、镜头光照、生成风险与保底构图、战场累积痕迹、代价账目、可选的所知与实际。它们支撑本文末尾那张表里的九条可查后果——七是字段组数，九是后果条数，两个数不要混用。它们让参考里的编舞要求有可查后果；校验器检查的仍只是结构后果，不判断动作是否好看。
 
 ## 时间、层级与版本
 
@@ -17,12 +17,14 @@
 - 慢镜：导演稿说明成片窗口、放慢的动作阶段、同窗各方如何同步。JSON数字不再代表现实速度或事件耗时；精确事件/呈现双时轴、重放和插叙不由本契约表达，不能宣称支持。
 - 每个区间满足 `0 <= start < end <= duration_sec`。
 
-版本字符串为 `1.2` 或 `1.1`。1.0包含混用时码的自由文本，不能可靠自动迁移；工具明确拒绝。1.1 数据混入 1.2 字段同样被拒绝，避免半迁移状态。从 1.1 升到 1.2 由创作者补写这七组字段并重新导出，不能用默认值批量填充。
+版本字符串为 `1.3`、`1.2` 或 `1.1`。1.0包含混用时码的自由文本，不能可靠自动迁移；工具明确拒绝。1.1 数据混入 1.2 字段、或 1.1/1.2 数据混入 1.3 字段，同样被拒绝，避免半迁移状态。从 1.1 升到 1.2 由创作者补写这七组字段并重新导出，不能用默认值批量填充。
+
+从 1.2 升到 1.3 可用 `migrate`：它只接受已通过 1.2 校验的数据，改写版本号后按 1.3 重新校验，写到新文件，不覆盖源文件或已存在文件。1.3 的四个新字段全部可选，所以迁移不需要补任何内容；工具同时列出需要人工判断的四项（是否有意识空间、哪些特效值得登记、是否有变身、哪些切点需要转场），**不自动生成任何一项**。
 
 ## 根对象
 
 ```text
-schema_version: "1.2" | "1.1"
+schema_version: "1.3" | "1.2" | "1.1"
 title: 非空字符串
 duration_sec: 正有限数字
 aspect_ratio: 非空字符串（创作设定，不是平台能力声明）
@@ -37,13 +39,17 @@ shots: 非空镜头数组
 segments: 非空制作段数组
 keyframes: 非空关键帧数组
 cost: 非空代价数组                              # 仅 1.2，必填
-knowledge?: 非空所知/实际数组                    # 仅 1.2，可选
+knowledge?: 非空所知/实际数组                    # 1.2 起，可选
+tracks?: 动作线数组                             # 仅 1.3，可选
+vfx?: 签名特效数组                               # 仅 1.3，可选
+forms?: 形态切换数组                             # 仅 1.3，可选
+transitions?: 转场数组                           # 仅 1.3，可选
 review?: 审阅登记对象
 ```
 
 所有对象拒绝未知字段。`goals`、`rules`、`turns` 三者都是**非空字符串列表**（`goals` 通常一方一条，写各自要达成什么，不写成对象或单个字符串），`outcome`为非空字符串。可选`viewing_tasks`为非空字符串列表，仅用于记录导演观看任务，不进入执行稿。
 
-`scene.asset_id`引用 `scene` 资产；`geography`为非空字符串，明确总体战场、地标、距离与高度。本版一场战斗一个总体战场，多个地标在其中组织。
+`scene.asset_id`引用 `scene` 资产；`geography`为非空字符串，明确总体战场、地标、距离与高度。一场战斗一个总体战场，多个地标在其中组织；识海等意识空间另建场景资产，用 `tracks` 区分。
 
 ## 战场累积痕迹（1.2）
 
@@ -72,7 +78,7 @@ scene.attrition: [{id, mark, from_beat, consequence}]
 ## 节拍与完整导演稿
 
 ```text
-{id, start, end, actors, action, response, result, requires, marks?}
+{id, start, end, actors, action, response, result, requires, marks?, track?}
 ```
 
 `actors`非空、无重复，只引用`character/creature/manifestation`；`requires`无重复节拍ID，可空，不自引、不成环、不依赖未来完成的拍。`action/response/result`非空；无即时回应也说明受限或主动不行动的依据。
@@ -95,7 +101,7 @@ scene.attrition: [{id, mark, from_beat, consequence}]
 
 ```text
 {id, start, end, beat_ids, asset_ids, opening_state, camera, effects, sound,
- end_state, execution, light, risk, fallback?}
+ end_state, execution, light, risk, fallback?, track?, outer_state?}
 execution: {opening_state, end_state, camera, effects, sound, light, cues}
 cue: {start, end, text}
 ```
@@ -195,7 +201,7 @@ knowledge?: [{id, holder, belief, truth, from_beat, cue, resolved_by?}]
 
 **可查后果**：`belief`与`truth`不得逐字相同；`resolved_by`不得等于`from_beat`，也不得早于它。
 
-这是幻术、残影、神识、虚招和一切欺骗的记账处。过去这些机制只以禁令形式出现（"无幻象""不留离体残影"），规则写了方法却没有槽位，示例因此全部回避。主客观视角是否分明、识破线索是否真的先于识破出现，属语义审阅。
+这是幻术、残影、神识、虚招和一切欺骗的记账处，让欺骗成为可登记的正面手段，而不只是禁令。主客观视角是否分明、识破线索是否真的先于识破出现，属语义审阅。
 
 ## 审阅及媒体观察
 
@@ -212,9 +218,10 @@ knowledge?: [{id, holder, belief, truth, from_beat, cue, resolved_by?}]
 ```bash
 python scripts/combat_plan.py validate examples/01-sword-and-body.json
 python scripts/combat_plan.py export examples/01-sword-and-body.json --out /path/to/new-directory
+python scripts/combat_plan.py migrate old-1.2.json --out new-1.3.json
 ```
 
-失败退出1、参数错误退出2；重复JSON键、非法常量、无效编码均拒绝。新目录导出前检查并在内存渲染，已有文件/目录不覆盖，失败清理本次临时产物。
+失败退出1、参数错误退出2；重复JSON键、非法常量、无效编码均拒绝。新目录导出前检查并在内存渲染，已有文件/目录不覆盖，失败清理本次临时产物。导出与迁移一律写 UTF-8 与 LF 换行，跨平台逐字节一致。
 
 输出仍为七文件：`project.json`、`01-design.md`、`02-assets.md`、`03-storyboard.md`、`04-keyframes.md`、`05-video-prompts.md`、`06-review.md`。其中03是完整导演稿，05是逐段精简执行稿；二者用途不同。
 
@@ -236,3 +243,84 @@ python scripts/combat_plan.py export examples/01-sword-and-body.json --out /path
 | 可复制文本洁净 | `execution` 六项文本、`cues[].text`、`prompt_context`、`fallback`、`keyframes[].prompt` 均不含阿拉伯数字时码，且不含任何已登记 ID | 文本是否真的可独立复制、是否漏掉了下一镜成立所需的信息 |
 
 工具不判断空间可达、招式合理、动作耗时、观感、具体平台能力或模型服从程度。执行稿长度按真实需要控制，没有平台品牌通用的安全字数阈值；写平台专属请求前先确认版本、入口和模式。镜长是否等分、节奏是否有对比不作结构检查——那是导演判断，方法见 [spectacle-and-style.md](spectacle-and-style.md)，自检见 [review-and-repair.md](review-and-repair.md)。
+
+## 1.3 新增
+
+四个根字段全部可选，各自登记时须为非空数组。它们与已有对象共用全场唯一 ID 空间。四者里所有会进入可复制执行稿的文本（动作线名称与时间关系、特效名称与外观与各阶段、形态阶梯、转场的保留/改变/切点条件/遮挡物）与执行稿同样受检：不得含阿拉伯数字时码，不得含任何已登记 ID。
+
+方法与写法见 [vfx-language.md](vfx-language.md)、[space-time-and-form.md](space-time-and-form.md)、[transitions.md](transitions.md)、[vfx-production.md](vfx-production.md)。
+
+### 并行动作线
+
+```text
+tracks?: [{id, kind, name, time_relation}]       # kind: world | inner
+beat.track / shot.track                          # 登记 tracks 后必填
+shot.outer_state                                 # 内景镜头必填，世界线镜头禁止
+```
+
+用于识海、梦境、幻阵、入定等与外层同时进行的意识空间。成片仍是单条镜头时间轴，`tracks` 只声明每个节拍与镜头属于哪条线。
+
+- 恰好一条 `world`，至少一条 `inner`。只有世界线时省略整个字段，单线战斗不需要动作线登记。
+- 登记后每个节拍、每个镜头都要写 `track`；镜头引用的节拍须与镜头同线。外层在内景期间的变化不写成外层节拍，而写进内景镜头的 `outer_state`。
+- `outer_state` 是同一时刻外层身体与世界的完整状态，与外层 `opening_state` 同格式，可写全场时码。**内景期间外界不暂停**。
+- **状态连续按线检查**：每条线内相邻镜头的外层与 `execution` 终起态逐字相等；回到世界线的第一镜，`opening_state` 须逐字等于最后一个内景镜头的 `outer_state`。不同线的镜头之间不要求终起态相等。
+- 段界状态相等只在段界两侧属同一条线时检查；跨线段界靠上一条规则保证。
+- 关键转折三帧只计同线镜头里的帧；呼吸拍只与同线的关键转折比较重叠。
+
+### 签名特效
+
+```text
+vfx?: [{id, owner, name, layer, scale, function, look, lifecycle, spends, route, shot_ids, asset_id?}]
+layer: world | post
+scale: micro | body | field | heaven
+route: one_pass | composite | asset
+lifecycle: {release, omen?, travel?, contact?, result?, residue?, fade?}
+```
+
+- `owner` 引用资产（任何类型，环境效果可归属场景）。`shot_ids` 非空、无重复、引用有效镜头。
+- `route` 为 `asset` 时 `asset_id` 必填且引用已登记资产；其余路线不得写 `asset_id`。
+- `post` 层不进入世界：不得有 `contact` 与 `residue`。`world` 层须写 `residue` 或 `fade` 之一。
+- `function`、`spends` 只进导演稿与审阅；`name`、`look` 与各阶段进执行稿。
+
+### 形态切换
+
+```text
+forms?: [{id, actor, from_asset, to_asset, beat_id, shot_ids, method, ladder,
+          shared_anchors, cost_id, duration, exit}]
+method: occlusion | morph | cut
+```
+
+- `actor` 为行动主体；`from_asset` 与 `to_asset` 是两套不同资产。
+- `shared_anchors` 非空，每项须逐字出现在前后两套资产的 `anchors` 里。
+- `beat_id` 须为 `pivotal` 节拍；`cost_id` 引用的代价须由 `actor` 本人支出。
+- `ladder` 至少三级，通常为征兆、覆盖或切换、落定。
+- `shot_ids` 中每镜须引用 `beat_id`，并同时登记前后两套资产。
+- `morph` 连续形变时，涉及镜头全部须为 `high`。
+
+### 转场
+
+```text
+transitions?: [{id, from_shot, to_shot, method, layer, keeps, changes, cut_condition, route, occluder?}]
+method: occlusion | match_graphic | match_action | whip | eyeline | sound_bridge |
+        medium_pass | cloud_pass | space_tear | ink_bleed | dissolve
+route: cut | composite | bridge
+```
+
+- 硬切是默认，不登记；未登记的切点在分镜中一律视为硬切。
+- `from_shot` 与 `to_shot` 须为相邻镜头；同一切点只登记一种转场。
+- 全场转场数不超过 `2 × ceil(duration_sec / 30)`。
+- 载体型方法（`occlusion`、`medium_pass`、`cloud_pass`、`space_tear`、`ink_bleed`）须写 `occluder`，其余方法不得写。
+- `keeps`、`changes` 非空。
+- `post` 层转场不得跨动作线，也不得位于同一形态切换的镜头之间。
+- `route` 为 `bridge` 时两侧镜头都须为 `high`。
+
+### 1.3 输出分配
+
+动作线与形态切换进01；签名特效进02；镜头所属动作线、外层状态、特效与形态出现、带制作路线的转场进03；签名特效外观、形态阶梯、不含 ID 的转场说明进05；特效、形态、动作线与转场的结构清单进06。
+
+| 1.3 要求 | 结构可查 | 仍属语义审阅 |
+| --- | --- | --- |
+| 并行动作线 | 一条世界线加至少一条内景线、全部拍与镜有归属、镜头与节拍同线、内景镜有外层状态、按线连续、回到世界线接上外层状态 | 外层危机在内景期间是否被记住、内景结果是否改变外层 |
+| 签名特效 | 归属有效、层级与残留/接触相容、世界内特效有残留或消退、资产化路线有资产、镜头引用有效 | 外观是否跨镜一致、是否喧宾夺主、功能是否被看懂 |
+| 形态切换 | 两套资产、共享锚点逐字存在、节拍为转折、代价归本人、阶梯至少三级、镜头含两套资产、连续形变为高风险 | 观众是否认出同一人、遮挡是否自然 |
+| 转场 | 相邻、每切点一处、密度上限、载体与遮挡物对应、呈现层不跨线不入形态、桥接两侧高风险 | 转场是否必要、切点条件是否可执行 |
