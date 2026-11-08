@@ -131,7 +131,7 @@ class PlanTests(unittest.TestCase):
     def test_all_examples_and_render(self):
         examples = sorted((ROOT / "examples").glob("*.json"))
         self.assertEqual(4, len(examples))
-        self.assertEqual({"1.3"}, {plan.load_project(path)["schema_version"] for path in examples})
+        self.assertEqual({"1.2"}, {plan.load_project(path)["schema_version"] for path in examples})
         for path in examples:
             with self.subTest(example=path.name):
                 project = plan.load_project(path)
@@ -306,7 +306,7 @@ class PlanTests(unittest.TestCase):
 
     def test_schema_upgrade_required(self):
         self.assertEqual([], plan.validate(self.project))
-        for version in ("1.0", 1.1, 1.2, "1.4", "1.1 "):
+        for version in ("1.0", 1.1, 1.2, "1.3", "1.1 "):
             self.rejects(lambda p, version=version: p.update(schema_version=version), "升级")
 
     def test_one_one_rejects_one_two_fields(self):

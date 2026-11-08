@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.3",
+  "schema_version": "1.2",
   "title": "落汐阵：借一口回水救人",
   "duration_sec": 39,
   "aspect_ratio": "16:9",
@@ -460,10 +460,7 @@
             "text": "庭面起一层薄水盖住铜线与缺口刻线，两条水索收得更紧、西索边缘压上左踝旧伤；阿沅右手停在楔头旁不硬拔。"
           }
         ]
-      },
-      "effect_ids": [
-        "fx_02_key_pressure"
-      ]
+      }
     },
     {
       "id": "xf02_shot_02",
@@ -527,11 +524,7 @@
             "text": "岳衡左指印转压第二道白纹，这一道蓄得明显更慢；闻栖肩膀下沉仍压符，阿沅继续摇楔，楔子剩三分之一在槽里。"
           }
         ]
-      },
-      "effect_ids": [
-        "fx_02_shunt_flow",
-        "fx_02_key_pressure"
-      ]
+      }
     },
     {
       "id": "xf02_shot_03",
@@ -579,11 +572,7 @@
             "text": "楔子脱扣落水、两半木扣分开，双索落地盘成两圈；她把左脚从松开的索环提出，索边把旧擦伤勒开一道新口，随后坐在水里。"
           }
         ]
-      },
-      "effect_ids": [
-        "fx_02_shunt_flow",
-        "fx_02_key_pressure"
-      ]
+      }
     },
     {
       "id": "xf02_shot_04",
@@ -629,11 +618,7 @@
             "text": "白水线一点没有变细，没有人在按符；北坛第二道白纹转为满亮，岳衡的手指停在上面没有按下去，三人静住。"
           }
         ]
-      },
-      "effect_ids": [
-        "fx_02_shunt_flow",
-        "fx_02_key_pressure"
-      ]
+      }
     },
     {
       "id": "xf02_shot_05",
@@ -691,11 +676,7 @@
             "text": "闻栖只用右手把阿沅从积水里拉起来，两人站到庭心偏东；阿沅左脚只虚点地面。"
           }
         ]
-      },
-      "effect_ids": [
-        "fx_02_shunt_flow",
-        "fx_02_key_pressure"
-      ]
+      }
     },
     {
       "id": "xf02_shot_06",
@@ -746,10 +727,7 @@
             "text": "两人沿槽底向南推行到门外站住，水从脚踝涨到膝；阿沅右手从闻栖腰袋里取出那张白厚纸护符。"
           }
         ]
-      },
-      "effect_ids": [
-        "fx_02_shunt_flow"
-      ]
+      }
     },
     {
       "id": "xf02_shot_07",
@@ -804,11 +782,7 @@
             "text": "两人站在门内槽道里，水持续从门口灌入；气囊收没，护符化成一团湿纸浆贴在前胸。"
           }
         ]
-      },
-      "effect_ids": [
-        "fx_02_shunt_flow",
-        "fx_02_dry_membrane"
-      ]
+      }
     },
     {
       "id": "xf02_shot_08",
@@ -858,10 +832,7 @@
             "text": "闻栖用右手把横木栓插入石槽到位，两人随即并肩靠门内墙站住喘息。"
           }
         ]
-      },
-      "effect_ids": [
-        "fx_02_shunt_flow"
-      ]
+      }
     },
     {
       "id": "xf02_shot_09",
@@ -906,10 +877,7 @@
             "text": "他松开左手垂下，右掌仍按着完整的黑石方钥；水面继续向石沿外溢，他没有离坛。"
           }
         ]
-      },
-      "effect_ids": [
-        "fx_02_shunt_flow"
-      ]
+      }
     }
   ],
   "segments": [
@@ -1285,230 +1253,5 @@
       "原稿假设里『左脚可在西索仍有余长时压住木扣』作废：改为先抽出的右脚压扣，左脚全程不动，西索余长只够平放。"
     ],
     "verification": "独立复算并逐处对齐的数字：脉冲路程与速度（第二圈铜线6米、每秒2米、两次均三秒到眼，取代原稿按4.47米直线算出的1.49与2.24两个速度）；蓄压时间与水头成反比（1.2米对四秒、0.8米对六秒，第一道4.5—8.5秒、第二道11.5—17.5秒，与白纹亮度与低鸣节奏一致）；闻栖呼气实际八秒（6.5—14.5秒）未触十秒上限；西索余长12厘米（索长40、踝到扣28）与右踝抽脚必擦破皮的索环内径关系；庭面积水2厘米与铜环高8毫米、刻线沟深3厘米、约三十度仰角共同支撑岳衡看不见熔豁；水位两阶段（旁路期每秒约1厘米、闸板全开后每秒约4厘米，槽深60厘米、约三十三秒前后与石沿齐平）与下槽及膝、门槛上方约40厘米齐平互相对得上；撤离步速（庭面2.42米／2.5秒约每秒0.97米，槽底2.4米／2.5秒约每秒0.96米，与半步跟走一致）；九镜时长6.5/7/3/2.5/4/6/3.5/4.5/2合计39秒且与主镜头轴连续；节拍引用窗口并集覆盖每个节拍；相邻镜与段的双层状态逐字一致；关键帧时刻落在所属镜头内、资产为本镜子集；呼吸拍窗口与两处转折窗口不重叠。门内外约三秒齐平是量级估算而非流体计算，已登记为未决项。未生成、未查看任何图片或视频，生成质量、动作可读性与水面呈现速度均未验证。"
-  },
-  "effect_specs": [
-    {
-      "id": "fx_02_shunt_flow",
-      "name": "东回水旁路、熔豁与南槽水位",
-      "families": [
-        "液体",
-        "材质",
-        "导流与导通破损"
-      ],
-      "applications": [
-        "构造搬运辅助动作",
-        "控场封路束缚",
-        "领域环境演化",
-        "救援松索"
-      ],
-      "reality": "world",
-      "asset_ids": [
-        "xf02_scene_court",
-        "xf02_form_tide",
-        "xf02_prop_shunt"
-      ],
-      "summary": "旁路借既有刻线分走水头，第一脉冲熔开的豁口使水路脱离符纸继续存在；放闸后同一水源经此进入南槽，门内外齐平才允许关门。",
-      "stages": [
-        {
-          "name": "压符接通刻线并形成南向旁路",
-          "start": 6.5,
-          "end": 11.5,
-          "beat_ids": [
-            "xf02_beat_shunt",
-            "xf02_beat_strike1",
-            "xf02_beat_unpin"
-          ],
-          "keyframe_ids": [
-            "xf02_frame_02",
-            "xf02_frame_03"
-          ]
-        },
-        {
-          "name": "脉冲熔豁、松手后旁路继续流动",
-          "start": 11.5,
-          "end": 19,
-          "beat_ids": [
-            "xf02_beat_shunt",
-            "xf02_beat_strike1",
-            "xf02_beat_unpin",
-            "xf02_beat_pull",
-            "xf02_beat_settle"
-          ],
-          "keyframe_ids": [
-            "xf02_frame_04",
-            "xf02_frame_05",
-            "xf02_frame_06",
-            "xf02_frame_07"
-          ]
-        },
-        {
-          "name": "放闸增流、庭面与南槽上涨",
-          "start": 19,
-          "end": 29,
-          "beat_ids": [
-            "xf02_beat_turn",
-            "xf02_beat_flee"
-          ],
-          "keyframe_ids": [
-            "xf02_frame_08",
-            "xf02_frame_09",
-            "xf02_frame_10",
-            "xf02_frame_11",
-            "xf02_frame_12"
-          ]
-        },
-        {
-          "name": "门口灌流、内外齐平与持续漏水终态",
-          "start": 29,
-          "end": 39,
-          "beat_ids": [
-            "xf02_beat_shelter",
-            "xf02_beat_latch"
-          ],
-          "keyframe_ids": [
-            "xf02_frame_13",
-            "xf02_frame_14",
-            "xf02_frame_15"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "fx_02_key_pressure",
-      "name": "阵钥蓄压、沿线脉冲与改注闸板",
-      "families": [
-        "能量",
-        "条带",
-        "蓄压与脉冲传播"
-      ],
-      "applications": [
-        "攻击命中",
-        "控场封路束缚",
-        "据人质脱锁改变封路手段"
-      ],
-      "reality": "world",
-      "asset_ids": [
-        "xf02_char_yueheng",
-        "xf02_prop_key",
-        "xf02_form_tide",
-        "xf02_scene_court"
-      ],
-      "summary": "白纹由池水水头蓄压；第一脉冲沿六米铜线到东眼，第二道改注闸板拉索。水头降低使蓄压变慢，不能把两次用途画成无限连续弹幕。",
-      "stages": [
-        {
-          "name": "第一道白纹蓄满",
-          "start": 4.5,
-          "end": 8.5,
-          "beat_ids": [
-            "xf02_beat_read",
-            "xf02_beat_strike1"
-          ],
-          "keyframe_ids": [
-            "xf02_frame_01"
-          ]
-        },
-        {
-          "name": "第一脉冲沿铜线绕行到眼",
-          "start": 8.5,
-          "end": 11.5,
-          "beat_ids": [
-            "xf02_beat_strike1"
-          ],
-          "keyframe_ids": [
-            "xf02_frame_02",
-            "xf02_frame_03"
-          ]
-        },
-        {
-          "name": "脉冲接触、符纸炭化与汽伤",
-          "start": 11.5,
-          "end": 12.5,
-          "beat_ids": [
-            "xf02_beat_strike1"
-          ],
-          "keyframe_ids": []
-        },
-        {
-          "name": "低水头第二道蓄压并在呼吸拍保持满亮",
-          "start": 12.5,
-          "end": 19,
-          "beat_ids": [
-            "xf02_beat_pull",
-            "xf02_beat_settle"
-          ],
-          "keyframe_ids": [
-            "xf02_frame_04",
-            "xf02_frame_05",
-            "xf02_frame_06",
-            "xf02_frame_07"
-          ]
-        },
-        {
-          "name": "改注拉索、抬闸卡死与白纹耗尽",
-          "start": 19,
-          "end": 22,
-          "beat_ids": [
-            "xf02_beat_turn"
-          ],
-          "keyframe_ids": [
-            "xf02_frame_08",
-            "xf02_frame_09",
-            "xf02_frame_10"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "fx_02_dry_membrane",
-      "name": "干纸护符的肩宽干气囊",
-      "families": [
-        "布料薄膜",
-        "液体",
-        "排水分流"
-      ],
-      "applications": [
-        "防御偏转卸力",
-        "限时护持与开门跨槛"
-      ],
-      "reality": "world",
-      "asset_ids": [
-        "xf02_char_wenqi",
-        "xf02_char_ayuan",
-        "xf02_prop_dry",
-        "xf02_scene_court"
-      ],
-      "summary": "护符遇水启用，气囊只把槽水分到肩宽边界之外；它不挡实体武器，收没后两人和门内水位继续承接。",
-      "stages": [
-        {
-          "name": "纸边沾水与气囊撑开",
-          "start": 29,
-          "end": 29.5,
-          "beat_ids": [
-            "xf02_beat_shelter"
-          ],
-          "keyframe_ids": []
-        },
-        {
-          "name": "水帘沿边界分开、护持开门跨槛",
-          "start": 29.5,
-          "end": 31.5,
-          "beat_ids": [
-            "xf02_beat_shelter"
-          ],
-          "keyframe_ids": [
-            "xf02_frame_13"
-          ]
-        },
-        {
-          "name": "气囊收没与湿纸浆残留",
-          "start": 31.5,
-          "end": 32.5,
-          "beat_ids": [
-            "xf02_beat_shelter"
-          ],
-          "keyframe_ids": []
-        }
-      ]
-    }
-  ]
+  }
 }

@@ -1,10 +1,8 @@
-# 交付契约 v1.3
+# 交付契约 v1.2
 
 本契约用于单场战斗的可选工作JSON。日常创作默认自然语言；用户要求存档与导出时使用JSON。数据由创作者编写，工具只检查结构、计算时码与组织文本，不推导动作、不将结构通过等同成片通过。
 
-**当前版本 `1.3`，对应技能包 v1.4，新建完整战斗存档默认用它。`1.1`、`1.2` 仍按各自原规则校验与导出。** 1.3 继承 1.2 全部编舞要求，只加主要效果、阶段与镜头引用，不改时间语义，不自动迁移自由文本。
-
-本契约仍只表达完整战斗。独立疗伤、通讯、仪式、天气等单项请求按范围交付自然语言提示词与必要帧，不为通过本校验器虚构对手、变招或双方代价。所有特效均面向视频模型直接生成；Niagara 等名称只作视觉参考，不添加引擎工程、人工后期路线或第二份生成正文。
+**当前版本 `1.2`，新建存档默认用它。`1.1` 仍被接受并按原规则校验，用于已有数据回溯，不再是推荐版本。** 1.2 在 1.1 之上只加编舞要求，不改时间语义、不改已有字段含义，也不迁移自由文本。
 
 1.2 新增七组字段：关键帧角色、节拍标记、镜头光照、生成风险与保底构图、战场累积痕迹、代价账目、可选的所知与实际。它们支撑本文末尾那张表里的九条可查后果——七是字段组数，九是后果条数，两个数不要混用。它们存在的理由是：这些要求过去只写在参考里，没有任何可查后果，示例因此可以全部等分镜长、零代价收场、反派不变招。校验器检查的仍只是结构后果，不判断动作是否好看。
 
@@ -19,12 +17,12 @@
 - 慢镜：导演稿说明成片窗口、放慢的动作阶段、同窗各方如何同步。JSON数字不再代表现实速度或事件耗时；精确事件/呈现双时轴、重放和插叙不由本契约表达，不能宣称支持。
 - 每个区间满足 `0 <= start < end <= duration_sec`。
 
-版本字符串为 `1.3`、`1.2` 或 `1.1`。1.0包含混用时码的自由文本，不能可靠自动迁移；工具明确拒绝。旧版混入新版字段同样被拒绝，避免半迁移状态。从 1.1 升到 1.2 由创作者补写七组编舞字段；从 1.2 升到 1.3 人工策划主要效果与阶段，逐镜填写 `effect_ids` 后重导出，不能用默认值批量凑齐。
+版本字符串为 `1.2` 或 `1.1`。1.0包含混用时码的自由文本，不能可靠自动迁移；工具明确拒绝。1.1 数据混入 1.2 字段同样被拒绝，避免半迁移状态。从 1.1 升到 1.2 由创作者补写这七组字段并重新导出，不能用默认值批量填充。
 
 ## 根对象
 
 ```text
-schema_version: "1.3" | "1.2" | "1.1"
+schema_version: "1.2" | "1.1"
 title: 非空字符串
 duration_sec: 正有限数字
 aspect_ratio: 非空字符串（创作设定，不是平台能力声明）
@@ -33,14 +31,13 @@ assumptions: 字符串列表，可空
 constraints: 字符串列表，可空
 design: {goals, rules, turns, outcome, viewing_tasks?}
 assets: 非空资产数组
-scene: {asset_id, geography, attrition}        # attrition 在 1.2/1.3 必填
+scene: {asset_id, geography, attrition}        # attrition 仅 1.2，必填
 beats: 非空节拍数组
 shots: 非空镜头数组
 segments: 非空制作段数组
 keyframes: 非空关键帧数组
-cost: 非空代价数组                              # 1.2/1.3 必填
-knowledge?: 非空所知/实际数组                    # 1.2/1.3 可选
-effect_specs: 主要效果对象数组，可空                # 仅 1.3，必填
+cost: 非空代价数组                              # 仅 1.2，必填
+knowledge?: 非空所知/实际数组                    # 仅 1.2，可选
 review?: 审阅登记对象
 ```
 
@@ -48,39 +45,7 @@ review?: 审阅登记对象
 
 `scene.asset_id`引用 `scene` 资产；`geography`为非空字符串，明确总体战场、地标、距离与高度。本版一场战斗一个总体战场，多个地标在其中组织。
 
-## 主要特效与生成阶段（仅 1.3）
-
-```text
-effect_specs: [{
-  id, name, families, applications, reality, asset_ids, summary,
-  stages: [{name, start, end, beat_ids, keyframe_ids}],
-  transitions?: [{from_shot_id, to_shot_id, method, out_condition, in_condition}],
-  transformation?: {subject_asset_id, invariants, allowed_changes}
-}]
-shots[].effect_ids: 字符串数组，可空
-```
-
-`effect_specs` 必填，可为 `[]`。仅为主要、跨镜、交互复杂或需独立追踪的效果建卡，普通火花、扬尘不必建实体。每镜仍须显式填写 `effect_ids`，无主要效果写 `[]`。
-
-- `id` 进入既有全场唯一 ID 空间，格式 `fx_[A-Za-z0-9][A-Za-z0-9_-]*`，至少四字符。它是本场效果身份，不是参考库的 FX01 等类型编号。
-- `name/summary` 非空字符串。summary 记录识别特征、可见行为与有效规则，供导演核对，不存第二份视频提示词。
-- `families/applications` 是非空、无重复字符串列表，分别登记视觉类型与用途。它们开放扩展，不由标签推断能力或校验配额；类型与应用参考见 [特效类型库](effects-library.md) 和 [应用库](effects-applications.md)。
-- `reality` 取 `world | subjective | editorial`。一张卡只登记一种现实层；例如实体火墙叠加主观残像时分成两卡，共享节拍与镜头。枚举不证明文字真的遵守分类。
-- `asset_ids` 为无重复有效资产引用，可空，表示整项效果涉及的资产总集。它不替代当前镜头或帧的绑定，也不将未来出现的资产自动注入执行稿。
-- `stages` 为非空阶段数组。阶段名称非空，时间是有限数字，满足 `0 <= start < end <= duration_sec`。瞬间接触用关键帧，不创建零长阶段。允许跨镜、重叠和不同层并行，不要求固定阶段顺序或覆盖效果一生。
-- 每阶段 `beat_ids` 是非空、无重复的有效节拍列表，各节拍与阶段有正时长交集，并在本效果的相交镜头里被引用。`keyframe_ids` 可空；登记则无重复、引用有效、时刻在阶段闭区间内，且所属镜头已登记该效果。
-- 每项效果至少被一镜引用；每次镜头引用须与一个阶段有正时长交集。引用镜头的窗口并集须完整覆盖每个登记阶段，画外仍在影响本镜的效果照样登记。只碰到区间边界不算正时长交集。
-- 阶段起止落在相关镜头内部时，必须对齐该镜 `execution.cues` 的已有边界（容差 `1e-6`）；需要中途启停时由作者拆 cue。落在切点无需零长 cue。时间对齐只是编排检查，不保证视频模型按时执行。
-- 可选 `transitions` 登记时数组非空。同卡允许多个接点，每对只能出现一次；两镜须按顺序相邻、都绑定该效果，且阶段覆盖切点两侧。method/out_condition/in_condition 均为非空文本；出入点是计划条件，真实生成后再据实际相邻帧校准。普通切镜不必登记，转场不会自动赋予瞬移或解除共享世界状态要求。
-- 可选 `transformation` 的主体可为任意有效资产，并须列入本卡 `asset_ids`。`invariants/allowed_changes` 是非空、无重复字符串列表；具体姿态、伤损和终态继续写在既有世界状态及执行窗口中，不复制一套状态。
-
-**生成正文仍只有 `execution.cues` 与 `execution.effects` 等原执行字段。** 工具不解析 summary、不自动把后续阶段、工程标识或整场结果拼入当前段。参考图职责继续使用资产 `reference`；同核心过程的简化方案继续使用 `fallback`；未核实模型控制能力继续进 `review.pending`。
-
-导出仍是七文件：03展示效果卡、阶段、用途和关联镜头，审阅部分链接到06，不重复嵌入全文；04在复制提示词外标明所关联阶段；05保持仅当前窗口的生成正文；06列出效果引用与生成审阅范围。01/02沿用目标规则和资产内容，不重复整套效果卡。1.1/1.2 的旧导出保持原样。
-
-1.3 新效果 ID 以及直接进入执行稿的资产名称、锚点、参考绑定都参与工程 ID 泄漏检查。stage 不具有独立实体 ID。1.1/1.2 不接受上述新字段，并按冻结的旧输入/输出做兼容回归。
-
-## 战场累积痕迹（1.2/1.3）
+## 战场累积痕迹（1.2）
 
 ```text
 scene.attrition: [{id, mark, from_beat, consequence}]
@@ -130,12 +95,12 @@ scene.attrition: [{id, mark, from_beat, consequence}]
 
 ```text
 {id, start, end, beat_ids, asset_ids, opening_state, camera, effects, sound,
- end_state, execution, light, risk, fallback?, effect_ids}
+ end_state, execution, light, risk, fallback?}
 execution: {opening_state, end_state, camera, effects, sound, light, cues}
 cue: {start, end, text}
 ```
 
-`light`、`risk` 与 `execution.light` 在 1.2/1.3 必填；`fallback` 由`risk`决定。`effect_ids` 仅在 1.3 必填，1.1/1.2 不得混入。
+`light`、`risk` 与 `execution.light` 仅 1.2，必填；`fallback` 由`risk`决定。
 
 - `beat_ids`非空、无重复且引用有效；`asset_ids`非空、无重复，登记本镜可见或需绑定资产，包括必要画外状态，不让画外人凭空消失。
 - 外层`opening_state/end_state`为完整世界状态；相邻镜头外层前终态与后起态逐字相等。机位和构图单列，不混入共享世界状态。
@@ -188,7 +153,7 @@ cue: {start, end, text}
 {id, shot_id, time_sec, asset_ids, state, prompt, role}
 ```
 
-`role`在 1.2/1.3 必填，取 `single | prep | contact | result | handoff`。
+`role`仅 1.2，必填，取 `single | prep | contact | result | handoff`。
 
 引用有效镜头和资产；资产非空、无重复且属于该镜资产集合；时刻位于所属镜头闭区间。`state/prompt`非空，只写那一瞬间可见的姿态、接点、器物、光照、环境，不画完整动作链。
 

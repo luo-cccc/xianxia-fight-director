@@ -201,26 +201,12 @@
       "license_evidence": "未读取加密资料；仅参考公开README的方法，不复制资料库、正文或源码"
     }
   ],
-  "user_materials": [
-    {
-      "name": "AI分镜转场Skill_V2.0_独立完整版.txt",
-      "read_date": "2026-11-08",
-      "sha256": "f77ffa2264b7b8aa312207b9653785bd7356a08b68c0438f9e17cf6ea4c47db5",
-      "adoption": "method_reference_only",
-      "copied_text_or_code": false,
-      "method": "前后状态、素材职责、实际出入点与验证层级；结合本项目独立写作直接视频生成的转场和变身规则",
-      "target_files": ["references/effects-applications.md", "references/effects-generation.md"],
-      "evidence": "用户提供的本地文本已读取；原附件未打包，不推定再分发许可，不作为运行依赖"
-    }
-  ],
   "original_files": [
     "SKILL.md",
     "README.md",
     "references/*.md",
     "scripts/combat_plan.py",
     "tests/test_combat_plan.py",
-    "tests/test_effect_specs.py",
-    "examples/effects-application-cases.md",
     "examples/*.json"
   ],
   "relationships": [
