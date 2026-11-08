@@ -1,6 +1,6 @@
 {
-  "version": "1.2",
-  "review_date": "2026-10-31",
+  "version": "1.4",
+  "review_date": "2026-11-08",
   "policy": "独立编写；不复制许可不明正文代码或案例；MIT仅限其证据范围",
   "sources": [
     {
@@ -219,7 +219,10 @@
     "references/*.md",
     "scripts/combat_plan.py",
     "tests/test_combat_plan.py",
-    "examples/*.json"
+    "tests/test_layers.py",
+    "tests/behavior/**",
+    "examples/*.json",
+    "examples/*/"
   ],
   "relationships": [
     "manju玄幻模块声明继承xuanhuan，部分参考文件字节相同，作为同一来源家族去重",

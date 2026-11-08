@@ -11,10 +11,12 @@ import re
 import shutil
 import sys
 import tempfile
+import unicodedata
 
 EPS = 1e-6
 EXECUTION_FIELDS = {"opening_state", "end_state", "camera", "effects", "sound", "cues"}
-EXECUTION_TIME = re.compile(r"[0-9]+(?:\.[0-9]+)?\s*秒|[0-9]+(?:[:：][0-9]{1,2}){1,2}(?:\.[0-9]+)?")
+# 冒号时码要求冒号后为两位数（0:12、01:02:03），16:9 这类比例不算时刻；匹配前做 NFKC 归一化，全角数字同样受检
+EXECUTION_TIME = re.compile(r"[0-9]+(?:\.[0-9]+)?\s*秒|(?<![0-9])[0-9]{1,2}(?:[:：][0-9]{2}){1,2}(?![0-9])(?:\.[0-9]+)?")
 KINDS = {"character", "creature", "scene", "prop", "formation", "manifestation"}
 ACTORS = {"character", "creature", "manifestation"}
 ROOT = {"schema_version", "title", "duration_sec", "aspect_ratio", "style", "assumptions", "constraints", "design", "assets", "scene", "beats", "shots", "segments", "keyframes"}
@@ -44,7 +46,7 @@ TRANSITION_ROUTE_LABELS = {"cut": "两侧分别生成后在切点拼接", "compo
 LIFECYCLE_LABELS = {"omen": "征兆", "release": "释放", "travel": "传播", "contact": "接触", "result": "结果", "residue": "残留", "fade": "消退"}
 FORM_LABELS = {"occlusion": "遮挡切换", "morph": "连续形变", "cut": "切镜切换"}
 METHOD_LABELS = {
-    "hard_cut": "硬切", "occlusion": "遮挡转场", "match_graphic": "图形匹配", "match_action": "动作匹配",
+    "occlusion": "遮挡转场", "match_graphic": "图形匹配", "match_action": "动作匹配",
     "whip": "甩镜", "eyeline": "视线转场", "sound_bridge": "声音先导", "medium_pass": "介质穿越",
     "cloud_pass": "穿云", "space_tear": "空间撕裂", "ink_bleed": "墨晕", "dissolve": "叠化",
 }
@@ -87,8 +89,9 @@ def craft_checks(project, fail):
             if not picked:
                 fail("keyframes", f"关键转折 {beat['id']} 缺少 {role} 帧；决胜接点须有预备、接触与结果三帧")
             else:
-                times[role] = picked[0]
-        if len(times) == len(CONTACT_ROLES) and not times["prep"] < times["contact"] < times["result"]:
+                times[role] = picked
+        # 同一角色可有多帧：全部预备帧早于全部接触帧，全部接触帧早于全部结果帧
+        if len(times) == len(CONTACT_ROLES) and not (times["prep"][-1] < times["contact"][0] and times["contact"][-1] < times["result"][0]):
             fail("keyframes", f"关键转折 {beat['id']} 的预备、接触、结果帧时刻须严格递增")
 
     pivotal_windows = [(x["start"], x["end"]) for x in marked["pivotal"]]
@@ -112,7 +115,7 @@ def craft_checks(project, fail):
         picked = [x for x in frames if x["role"] == "handoff" and abs(x["time_sec"] - boundary) <= EPS]
         if not picked:
             fail(f"segments.{segment['id']}", f"段界缺少 handoff 关键帧；{previous['id']} 与 {segment['id']} 的交接时刻须有可复现静图")
-        elif any(x["shot_id"] != last["id"] for x in picked):
+        elif not any(x["shot_id"] == last["id"] for x in picked):
             fail(f"segments.{segment['id']}", f"段界 handoff 帧须归属前段末镜 {last['id']}，作为末帧条件使用")
 
     if len(project["shots"]) > 1 and len({x["light"] for x in project["shots"]}) < 2:
@@ -218,6 +221,7 @@ def validate(project):
     version = project["schema_version"]
     if version not in VERSIONS:
         fail("schema_version", "仅支持字符串版本 1.1、1.2 或 1.3；请升级旧版数据并编写镜头 execution 与段 prompt_context，不自动迁移自由文本")
+        return errors
     craft = version in ("1.2", "1.3")
     layered = version == "1.3"
     if not craft:
@@ -264,6 +268,7 @@ def validate(project):
 
     assets = group("assets", {"id", "kind", "name", "anchors", "states", "image_prompt"}, {"reference"})
     asset_map = {}
+    printed = []  # (value, path)：资产名称、锚点与参考绑定会原样进入执行稿，与执行文本同样受检
     for path, item in assets:
         if isinstance(item["id"], str):
             asset_map[item["id"]] = item
@@ -271,11 +276,14 @@ def validate(project):
             fail(path + ".kind", "未知资产类型")
         for key in ("name", "image_prompt"):
             text(item[key], path + "." + key)
-        strings(item["anchors"], path + ".anchors", nonempty=True)
+        if strings(item["anchors"], path + ".anchors", nonempty=True):
+            printed += [(x, f"{path}.anchors[{i}]") for i, x in enumerate(item["anchors"])]
         strings(item["states"], path + ".states")
+        printed.append((item["name"], path + ".name"))
         if "reference" in item and obj(item["reference"], {"source", "control", "keep", "exclude"}, path + ".reference"):
             for key, value in item["reference"].items():
                 text(value, path + ".reference." + key)
+                printed.append((value, path + ".reference." + key))
 
     scene = project["scene"]
     scene_fields = {"asset_id", "geography", "attrition"} if craft else {"asset_id", "geography"}
@@ -299,14 +307,17 @@ def validate(project):
         return errors
 
     def execution_text(value, path, kind="执行文本"):
-        if text(value, path) and EXECUTION_TIME.search(value):
+        if text(value, path) and EXECUTION_TIME.search(unicodedata.normalize("NFKC", value)):
             fail(path, f"{kind}不得含阿拉伯数字秒码或冒号时码；时刻只允许写在 cues.start / cues.end 数值字段。计数（如“退三步”“两柄戟”）不受限制")
 
-    layer_texts = []  # (value, path)：会进入可复制执行稿的 1.3 文本，统一做 ID 扫描
+    for value, path in printed:
+        if isinstance(value, str) and EXECUTION_TIME.search(unicodedata.normalize("NFKC", value)):
+            fail(path, "进入执行稿的资产文本不得含阿拉伯数字秒码或冒号时码")
+    layer_texts = list(printed)  # (value, path)：会进入可复制执行稿的文本，统一做 ID 扫描
     track_map = {}
     if layered and "tracks" in project:
         for path, item in group("tracks", {"id", "kind", "name", "time_relation"}):
-            text(item["name"], path + ".name")
+            execution_text(item["name"], path + ".name", "动作线名称")
             execution_text(item["time_relation"], path + ".time_relation", "动作线时间关系")
             layer_texts += [(item["name"], path + ".name"), (item["time_relation"], path + ".time_relation")]
             if not isinstance(item["kind"], str) or item["kind"] not in TRACK_KINDS:
@@ -346,7 +357,7 @@ def validate(project):
         end_ok = number(item["end"], path + ".end")
         if start_ok and end_ok:
             start, end = item["start"], item["end"]
-            if start < 0 or end <= start or end > duration + EPS:
+            if start < -EPS or end <= start or end > duration + EPS:
                 fail(path, "时间须满足 0 <= start < end <= duration_sec")
             elif isinstance(item["id"], str):
                 ranges[item["id"]] = (start, end)
@@ -432,21 +443,25 @@ def validate(project):
             fail(execution_path + ".cues", "必须是非空对象数组")
             continue
         cursor = shot["start"]
+        broken = False  # 某条 cue 结构错误后不再检查连续覆盖，避免连锁误报
         for i, cue in enumerate(cues):
             cue_path = f"{execution_path}.cues[{i}]"
             if not obj(cue, {"start", "end", "text"}, cue_path):
+                broken = True
                 continue
             execution_text(cue["text"], cue_path + ".text")
             start_ok = number(cue["start"], cue_path + ".start")
             end_ok = number(cue["end"], cue_path + ".end")
-            if start_ok and end_ok:
+            if not (start_ok and end_ok):
+                broken = True
+            elif not broken:
                 start, end = cue["start"], cue["end"]
                 if end <= start or start < shot["start"] - EPS or end > shot["end"] + EPS:
                     fail(cue_path, "cue 须满足所属镜头 start <= cue.start < cue.end <= 镜头 end，不得超镜")
                 if abs(start - cursor) > EPS:
                     fail(cue_path + ".start", "cues 须按序连续覆盖所属镜头，不得有缺口、重叠或顺序错误")
                 cursor = end
-        if abs(cursor - shot["end"]) > EPS:
+        if not broken and abs(cursor - shot["end"]) > EPS:
             fail(execution_path + ".cues", "cues 须连续覆盖到所属镜头终点")
 
     # 状态连续按动作线检查：无 tracks 时全片是一条线；有 tracks 时各线内相邻镜头接续，
@@ -582,7 +597,7 @@ def validate(project):
     if craft:
         seq = [x for _, x in segments]
         for previous in seq[:-1]:
-            if isinstance(previous.get("shot_ids"), list) and previous["shot_ids"]:
+            if isinstance(previous.get("shot_ids"), list) and previous["shot_ids"] and isinstance(previous["shot_ids"][-1], str):
                 boundary_shots.add(previous["shot_ids"][-1])
     for key, count in frame_counts.items():
         if not count:
@@ -644,8 +659,9 @@ def validate(project):
 
         if "vfx" in project:
             for path, item in group("vfx", {"id", "owner", "name", "layer", "scale", "function", "look", "lifecycle", "spends", "route", "shot_ids"}, {"asset_id"}):
-                for key in ("name", "function", "spends"):
+                for key in ("function", "spends"):
                     text(item[key], path + "." + key)
+                execution_text(item["name"], path + ".name", "特效名称")
                 execution_text(item["look"], path + ".look", "特效外观")
                 layer_texts += [(item["name"], path + ".name"), (item["look"], path + ".look")]
                 if text(item["owner"], path + ".owner") and item["owner"] not in asset_map:
@@ -691,7 +707,9 @@ def validate(project):
                             pair.append(asset_map[item[key]])
                 if len(pair) == 2 and pair[0]["id"] == pair[1]["id"]:
                     fail(path + ".to_asset", "形态前后须是两套资产；同一资产内的状态变化写 states")
-                if strings(item["shared_anchors"], path + ".shared_anchors", nonempty=True, unique=True) and len(pair) == 2:
+                if strings(item["shared_anchors"], path + ".shared_anchors", nonempty=True, unique=True):
+                    layer_texts += [(x, f"{path}.shared_anchors[{i}]") for i, x in enumerate(item["shared_anchors"])]
+                if isinstance(item["shared_anchors"], list) and all(isinstance(x, str) for x in item["shared_anchors"]) and len(pair) == 2:
                     for anchor in item["shared_anchors"]:
                         if anchor not in pair[0]["anchors"] or anchor not in pair[1]["anchors"]:
                             fail(path + ".shared_anchors", f"身份锚点须逐字出现在前后两套资产的 anchors 中：{anchor}")
@@ -779,12 +797,15 @@ def validate(project):
                         if shot_map[ref].get("risk") != "high":
                             fail(path + ".route", f"首尾帧桥接不保证可用，两侧镜头 {ref} 须标 high 并给保底构图")
 
-    leaked = sorted(x for x in ids if len(x) >= 4)
+    # 扫描全部已登记 ID（含 B03 这类短 ID），按标识符边界匹配，不把普通单词里的子串误判为 ID
+    leaked = sorted(ids)
     if leaked:
+        pattern = re.compile(r"(?<![A-Za-z0-9_-])(?:" + "|".join(map(re.escape, sorted(leaked, key=len, reverse=True))) + r")(?![A-Za-z0-9_-])")
+
         def scan(value, path):
             if not isinstance(value, str):
                 return
-            hit = [x for x in leaked if x in value]
+            hit = sorted(set(pattern.findall(value)))
             if hit:
                 fail(path, "不得含内部 ID " + ", ".join(hit[:3]) + "；执行稿、段上下文与静图提示词用名称而非工程标识")
         for path, shot in shots:
@@ -821,7 +842,8 @@ ROLE_LABELS = {
 
 
 def _time(value):
-    return f"{value:.6f}".rstrip("0").rstrip(".")
+    result = f"{value:.6f}".rstrip("0").rstrip(".")
+    return "0" if result == "-0" else result
 
 
 def _clause(value):
@@ -915,8 +937,8 @@ def render(project):
             result += transition_text(transitions[shot["id"]], True)
         return result
 
-    def transition_text(item, internal):
-        head = f"转场 {item['id']} → {item['to_shot']}" if internal else "转场至下一镜"
+    def transition_text(item, internal, head=None):
+        head = head or (f"转场 {item['id']} → {item['to_shot']}" if internal else "转场至下一镜")
         result = f"{head}：{METHOD_LABELS[item['method']]}（{LAYER_LABELS[item['layer']]}）。"
         if "occluder" in item:
             result += f"遮挡物或介质：{_clause(item['occluder'])}。"
@@ -953,7 +975,8 @@ def render(project):
         if signatures:
             video += "\n签名特效（跨镜外观保持一致）：\n\n"
             for item in signatures:
-                video += f"- {item['name']}：{item['look']}\n"
+                phases = "；".join(f"{LIFECYCLE_LABELS[key]}：{_clause(item['lifecycle'][key])}" for key in LIFECYCLE if key in item["lifecycle"])
+                video += f"- {item['name']}：{_clause(item['look'])}。{phases}。\n"
         for form in project.get("forms", []):
             if segment_ids & set(form["shot_ids"]):
                 video += f"\n形态切换阶梯：{' → '.join(map(_clause, form['ladder']))}。切换中不提供无敌时间，身份锚点保持：{'；'.join(form['shared_anchors'])}。\n"
@@ -974,7 +997,7 @@ def render(project):
                 video += transition_text(transitions[shot["id"]], False)
         video += f"本段终态与承接：{last['execution']['end_state']}\n\n"
         if last["id"] in transitions:
-            video += "本段与下段之间的" + transition_text(transitions[last["id"]], False)
+            video += transition_text(transitions[last["id"]], False, "本段与下段之间的转场")
         handoff = [x for x in project["keyframes"] if x.get("role") == "handoff" and abs(x["time_sec"] - last["end"]) <= EPS]
         if handoff and index < len(project["segments"]):
             video += f"段界交接静图（本段末帧，亦为下段首帧条件）：{handoff[0]['prompt']}\n\n"
@@ -1014,7 +1037,9 @@ def render(project):
             review += f"来源：{observation['source']}\n\n类型：{observation['kind']}\n\n作者观察：{observation['observation']}\n\n观察局限：{observation['limitations']}\n\n"
     else:
         review += "未登记媒体观察；不能据此推断是否生成或是否已观看。\n\n"
-    board += "## 审阅记录\n\n" + review
+    # 嵌入分镜时去掉审阅稿自己的一级标题，其余标题降一级，挂在“## 审阅记录”之下
+    body = review.split("\n\n", 1)[1]
+    board += "## 审阅记录\n\n" + re.sub(r"^(#+) ", lambda m: "#" * min(len(m.group(1)) + 1, 6) + " ", body, flags=re.M)
     return {"project.json": json.dumps(project, ensure_ascii=False, indent=2, allow_nan=False) + "\n", "01-design.md": design_text, "02-assets.md": asset_text, "03-storyboard.md": board, "04-keyframes.md": frame_text, "05-video-prompts.md": video, "06-review.md": review}
 
 
@@ -1082,19 +1107,34 @@ def main(argv=None):
     parser.add_argument("project", type=Path)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args(argv)
+    # 参数错误先于读取文件报告，退出码 2
+    if args.command == "migrate" and args.out is None:
+        parser.error("migrate 需要 --out，且不覆盖源文件或已存在文件")
+    if args.command == "export" and args.out is None:
+        parser.error("export 需要 --out")
+    if args.command == "validate" and args.out is not None:
+        parser.error("validate 不使用 --out")
+    # 结果含中文；控制台编码不是 UTF-8 时也不能因打印失败掩盖真实校验结果
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     try:
         project = load_project(args.project)
         if args.command == "migrate":
-            if args.out is None:
-                parser.error("migrate 需要 --out，且不覆盖源文件或已存在文件")
             migrated, todo = migrate(project)
+            # 先在内存完成序列化与编码，失败时不留下空目标文件
+            payload = (json.dumps(migrated, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode("utf-8")
             target = args.out.absolute()
             if target.exists() or target.is_symlink():
                 raise FileExistsError(f"目标已存在，不覆盖: {target}")
             if not target.parent.is_dir():
                 raise FileNotFoundError(f"父目录不存在: {target.parent}")
-            with open(target, "x", encoding="utf-8", newline="\n") as handle:
-                handle.write(json.dumps(migrated, ensure_ascii=False, indent=2, allow_nan=False) + "\n")
+            with open(target, "xb") as handle:
+                try:
+                    handle.write(payload)
+                except BaseException:
+                    handle.close()
+                    target.unlink()
+                    raise
             print(json.dumps({"structural_status": "pass", "semantic_status": "needs_review", "output": str(target), "schema_version": "1.3", "manual": todo}, ensure_ascii=False, indent=2))
             return 0
         errors = validate(project)
@@ -1103,11 +1143,7 @@ def main(argv=None):
             return 1
         result = {"structural_status": "pass", "semantic_status": "needs_review"}
         if args.command == "export":
-            if args.out is None:
-                parser.error("export 需要 --out")
             result["output"] = str(export_bundle(project, args.out))
-        elif args.out is not None:
-            parser.error("validate 不使用 --out")
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     except (OSError, ValueError, RecursionError) as exc:

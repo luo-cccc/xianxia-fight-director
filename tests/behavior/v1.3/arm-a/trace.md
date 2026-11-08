@@ -59,7 +59,7 @@
 
 只有任务允许的两个：
 
-- `C:\Users\Msi\Desktop\xianxia-fight-director\tests\behavior\v1.3\arm-a\response.md`（分 6 次追加写成：设计卡 → 资产 → 分镜前三镜 → 分镜后四镜 → 关键帧 → 执行稿 → 审阅摘要，其中分镜与执行稿各占一次以上；随后做了若干次定点修正）
-- `C:\Users\Msi\Desktop\xianxia-fight-director\tests\behavior\v1.3\arm-a\trace.md`（本文件）
+- `tests/behavior/v1.3/arm-a/response.md`（分 6 次追加写成：设计卡 → 资产 → 分镜前三镜 → 分镜后四镜 → 关键帧 → 执行稿 → 审阅摘要，其中分镜与执行稿各占一次以上；随后做了若干次定点修正）
+- `tests/behavior/v1.3/arm-a/trace.md`（本文件）
 
 没有创建、修改或删除任何其他文件。

@@ -43,7 +43,7 @@
 
 ## 安装
 
-将整个 `xianxia-fight-director` 文件夹复制到下列任意位置，确保 `SKILL.md` 直接位于技能目录中：
+将整个技能文件夹复制到下列任意位置，确保 `SKILL.md` 直接位于技能目录中。文件夹必须命名为 `xianxia-fight-director`，与 `SKILL.md` 头部的 `name` 一致；从 GitHub 下载得到的 `xianxia-fight-director-main` 等目录要先改名：
 
 - 项目内：`<project>/.agents/skills/xianxia-fight-director/`
 - 用户级：`~/.agents/skills/xianxia-fight-director/`

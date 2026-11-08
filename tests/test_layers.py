@@ -76,7 +76,7 @@ class LayeredTests(unittest.TestCase):
         errors = plan.validate(changed)
         self.assertTrue(any(fragment in error for error in errors), errors)
 
-    def test_fixtures_pass(self):
+    def test_base_projects_pass(self):
         self.assertEqual([], plan.validate(self.project))
         self.assertEqual([], plan.validate(self.tracked))
 

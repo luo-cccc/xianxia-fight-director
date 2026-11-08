@@ -11,16 +11,17 @@ python -X utf8 -B -m unittest discover -s tests
 for f in examples/*.json; do python scripts/combat_plan.py validate "$f"; done
 ```
 
-56 个测试方法全部通过；五套示例全部 `structural_status: pass`，`semantic_status` 保持 `needs_review`。
+66 个测试方法全部通过；五套示例全部 `structural_status: pass`，`semantic_status` 保持 `needs_review`。
 
 | 测试文件 | 覆盖 |
 | --- | --- |
 | `tests/test_combat_plan.py`（46） | 严格读取（重复键、非法常量、编码）、ID 与引用、时间轴覆盖、并行与依赖、cues、双层状态交接、关键帧、导出不覆盖与失败清理、执行稿隔离；三版本隔离；1.2 九条编舞后果（`CraftTests`）；已发布示例目录与当前 `render` 逐字一致 |
 | `tests/test_layers.py`（10） | 1.3 动作线、签名特效、形态切换、转场的结构规则；旧版本拒绝 1.3 字段；渲染分配与执行稿不含 ID；无重复标点；`migrate` 及其 CLI 不覆盖 |
+| `tests/test_review_fixes.py`（10） | 审查回归：畸形段界不崩溃、短 ID 按边界扫描、比例不误判为时码而全角秒码被拦、动作线与特效名称及资产文本受检、额外 handoff 帧允许、转折三帧严格分组递增、错误不连锁、渲染修正、`migrate` 失败不留文件、参数错误先退出 2 |
 
 ## 五套示例
 
-均为 JSON 1.3。01–04 由 `migrate` 从 1.2 迁移，与迁移前逐行比对只有 `schema_version` 一行不同；05 为 1.3 新写。
+均为 JSON 1.3。01–04 由 `migrate` 从 1.2 迁移，与迁移前相比 JSON 仅 `schema_version` 一行不同；导出 Markdown 另受渲染修正影响；05 为 1.3 新写。
 
 | 示例 | 时长 | 镜长 | 段 | 帧（单/预/接/果/交接） | 代价（不可逆/归属） | 痕迹 | 信息差 | 高风险镜 | 1.3 字段 |
 |---|---:|---|---:|---|---|---:|---:|---:|---|

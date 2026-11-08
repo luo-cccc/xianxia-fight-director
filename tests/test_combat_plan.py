@@ -81,7 +81,7 @@ def make_craft_project():
         shot["risk"] = risk
         shot["execution"]["light"] = light
         if risk == "high":
-            shot["fallback"] = "改为侧向中景只拍剑锋与护臂接点，断碑留前景虚焦，世界状态不变"
+            shot["fallback"] = "改为侧向中景只拍剑锋与护臂接点，断碑留前景虚焦"
     project["beats"][1]["marks"] = ["pivotal", "adaptation"]
     project["beats"][2]["marks"] = ["breath"]
     project["scene"]["attrition"] = [
