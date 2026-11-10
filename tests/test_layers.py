@@ -211,14 +211,20 @@ class LayeredTests(unittest.TestCase):
 
     def test_migrate(self):
         migrated, todo = plan.migrate(make_craft_project())
-        self.assertEqual("1.3", migrated["schema_version"])
+        self.assertEqual("1.4", migrated["schema_version"])
         self.assertEqual([], plan.validate(migrated))
         self.assertEqual(list(plan.MIGRATION_TODO), todo)
         for key in plan.LAYER_FIELDS:
             self.assertNotIn(key, migrated)
-        for source in (make_project(), self.project):
-            with self.assertRaises(ValueError):
-                plan.migrate(source)
+        self.assertNotIn(plan.WINDOW_PLAN, migrated)
+        with self.assertRaises(ValueError):
+            plan.migrate(make_project())
+        upgraded, window_todo = plan.migrate(self.project)
+        self.assertEqual("1.4", upgraded["schema_version"])
+        self.assertEqual([], plan.validate(upgraded))
+        self.assertEqual(list(plan.WINDOW_MIGRATION_TODO), window_todo)
+        with self.assertRaises(ValueError):
+            plan.migrate(upgraded)
         broken = make_craft_project()
         broken["shots"][0]["light"] = ""
         with self.assertRaises(ValueError):
@@ -231,7 +237,7 @@ class LayeredTests(unittest.TestCase):
             target = Path(tmp) / "new.json"
             with mock.patch("sys.stdout"):
                 self.assertEqual(0, plan.main(["migrate", str(source), "--out", str(target)]))
-                self.assertEqual("1.3", plan.load_project(target)["schema_version"])
+                self.assertEqual("1.4", plan.load_project(target)["schema_version"])
                 self.assertEqual(1, plan.main(["migrate", str(source), "--out", str(target)]))
                 self.assertEqual(1, plan.main(["migrate", str(source), "--out", str(source)]))
             self.assertEqual("1.2", plan.load_project(source)["schema_version"])

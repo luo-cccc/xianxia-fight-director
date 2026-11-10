@@ -74,3 +74,5 @@ omen 征兆 → release 释放 → travel 传播 → contact 接触 → result �
 ## 与其他参考的分工
 
 环境、身体与介质的写法见 [vfx-environment-and-body.md](vfx-environment-and-body.md)；变身、飞行、意识空间见 [space-time-and-form.md](space-time-and-form.md)；转场见 [transitions.md](transitions.md)；制作路线与难度见 [vfx-production.md](vfx-production.md)。识别语法、光照归属与可读性层级仍以 [camera-and-vfx.md](camera-and-vfx.md) 为准。
+
+跨生成窗口时，世界内特效在入口接缝包里写清当前阶段、位置、方向、亮度与剩余量；`post` 层效果不跨窗。窗口边界与接缝包见 [window-planning.md](window-planning.md)。

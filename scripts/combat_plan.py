@@ -20,13 +20,20 @@ EXECUTION_TIME = re.compile(r"[0-9]+(?:\.[0-9]+)?\s*秒|(?<![0-9])[0-9]{1,2}(?:[
 KINDS = {"character", "creature", "scene", "prop", "formation", "manifestation"}
 ACTORS = {"character", "creature", "manifestation"}
 ROOT = {"schema_version", "title", "duration_sec", "aspect_ratio", "style", "assumptions", "constraints", "design", "assets", "scene", "beats", "shots", "segments", "keyframes"}
-VERSIONS = ("1.1", "1.2", "1.3")
+VERSIONS = ("1.1", "1.2", "1.3", "1.4")
 MARKS = ("pivotal", "breath", "adaptation")
 ROLES = {"single", "prep", "contact", "result", "handoff"}
 RISKS = {"low", "high"}
 CONTACT_ROLES = ("prep", "contact", "result")
 # 1.3：并行动作线、签名特效、形态切换与转场登记
 LAYER_FIELDS = ("tracks", "vfx", "forms", "transitions")
+# 1.4：按剧本关联规划生成窗口；窗口是生成单位，镜头是剪辑单位，制作段是叙事单位
+WINDOW_PLAN = "window_plan"
+KNOT_KINDS = {"action", "causal", "information", "form", "space", "scale", "sound", "performance", "other"}
+CANDIDATE_GRADES = ("A", "B", "C")
+CAPABILITY_SOURCES = {"user_stated", "verified", "unknown"}
+FRAME_CONDITIONS = {"start", "end", "both", "none", "unknown"}
+CARRY_KEYS = ("vfx", "forms", "costs", "knowledge", "tracks", "attrition")
 TRACK_KINDS = {"world", "inner"}
 LAYERS = {"world", "post"}
 SCALES = {"micro", "body", "field", "heaven"}
@@ -50,6 +57,12 @@ METHOD_LABELS = {
     "whip": "甩镜", "eyeline": "视线转场", "sound_bridge": "声音先导", "medium_pass": "介质穿越",
     "cloud_pass": "穿云", "space_tear": "空间撕裂", "ink_bleed": "墨晕", "dissolve": "叠化",
 }
+KNOT_LABELS = {
+    "action": "连续动作", "causal": "因果", "information": "信息", "form": "形态",
+    "space": "动作线/空间", "scale": "尺度", "sound": "声音", "performance": "表演", "other": "其他",
+}
+CAPABILITY_LABELS = {"user_stated": "用户声明", "verified": "已核实", "unknown": "未知"}
+FRAME_CONDITION_LABELS = {"start": "首帧", "end": "尾帧", "both": "首尾帧", "none": "无", "unknown": "未知"}
 
 
 def _object(pairs):
@@ -216,22 +229,25 @@ def validate(project):
                 result.append((path, item))
         return result
 
-    if not obj(project, ROOT, "project", {"review", "cost", "knowledge"} | set(LAYER_FIELDS)):
+    if not obj(project, ROOT, "project", {"review", "cost", "knowledge"} | set(LAYER_FIELDS) | {WINDOW_PLAN}):
         return errors
     version = project["schema_version"]
     if version not in VERSIONS:
-        fail("schema_version", "仅支持字符串版本 1.1、1.2 或 1.3；请升级旧版数据并编写镜头 execution 与段 prompt_context，不自动迁移自由文本")
+        fail("schema_version", "仅支持字符串版本 1.1、1.2、1.3 或 1.4；请升级旧版数据并编写镜头 execution 与段 prompt_context，不自动迁移自由文本")
         return errors
-    craft = version in ("1.2", "1.3")
-    layered = version == "1.3"
+    craft = version in ("1.2", "1.3", "1.4")
+    layered = version in ("1.3", "1.4")
+    windowed = version == "1.4"
     if not craft:
         for key in ("cost", "knowledge"):
             if key in project:
-                fail(key, "仅 1.2 支持该字段（1.3 继承）；1.1 数据不得混入 1.2 字段")
+                fail(key, "仅 1.2 支持该字段（1.3、1.4 继承）；1.1 数据不得混入 1.2 字段")
     if not layered:
         for key in LAYER_FIELDS:
             if key in project:
-                fail(key, "仅 1.3 支持该字段；旧版数据须先用 migrate 升级到 1.3 再登记")
+                fail(key, "仅 1.3 支持该字段（1.4 继承）；旧版数据须先用 migrate 升级到 1.4 再登记")
+    if not windowed and WINDOW_PLAN in project:
+        fail(WINDOW_PLAN, "仅 1.4 支持生成窗口规划；1.3 数据须先用 migrate 升级到 1.4")
     for key in ("title", "aspect_ratio", "style"):
         text(project[key], key)
     duration_ok = number(project["duration_sec"], "duration_sec")
@@ -797,6 +813,339 @@ def validate(project):
                         if shot_map[ref].get("risk") != "high":
                             fail(path + ".route", f"首尾帧桥接不保证可用，两侧镜头 {ref} 须标 high 并给保底构图")
 
+    def check_window_plan():
+        wp = project[WINDOW_PLAN]
+        if not obj(wp, {"capability", "knots", "candidates", "windows"}, "window_plan", {"notes"}):
+            return
+        if "notes" in wp:
+            text(wp["notes"], "window_plan.notes")
+
+        cap = wp["capability"]
+        max_window = None
+        if obj(cap, {"source"}, "window_plan.capability",
+               {"max_window_sec", "arbitrary_start", "frame_conditioning", "internal_cuts", "audio"}):
+            source = cap["source"]
+            if not isinstance(source, str) or source not in CAPABILITY_SOURCES:
+                fail("window_plan.capability.source", "仅支持 " + ", ".join(sorted(CAPABILITY_SOURCES)))
+            if "max_window_sec" in cap:
+                if number(cap["max_window_sec"], "window_plan.capability.max_window_sec"):
+                    if cap["max_window_sec"] <= 0:
+                        fail("window_plan.capability.max_window_sec", "必须大于零")
+                    else:
+                        max_window = cap["max_window_sec"]
+                    if source == "unknown":
+                        fail("window_plan.capability.max_window_sec", "能力未知时不要写上限；省略它并按切点阶梯规划")
+            for key in ("arbitrary_start", "internal_cuts", "audio"):
+                if key in cap and not isinstance(cap[key], bool):
+                    fail("window_plan.capability." + key, "必须是布尔值")
+            if "frame_conditioning" in cap and (not isinstance(cap["frame_conditioning"], str) or cap["frame_conditioning"] not in FRAME_CONDITIONS):
+                fail("window_plan.capability.frame_conditioning", "仅支持 " + ", ".join(sorted(FRAME_CONDITIONS)))
+
+        knots = wp["knots"]
+        knot_map = {}
+        if not isinstance(knots, list) or not knots:
+            fail("window_plan.knots", "登记 window_plan 时须为非空关联簇数组；每场至少标出真正会被拆坏的内容")
+        else:
+            for i, item in enumerate(knots):
+                path = f"window_plan.knots[{i}]"
+                if not obj(item, {"id", "shot_ids", "kind", "why"}, path):
+                    continue
+                identity(item, path)
+                refs(item["shot_ids"], shot_map, path + ".shot_ids")
+                if not isinstance(item["kind"], str) or item["kind"] not in KNOT_KINDS:
+                    fail(path + ".kind", "仅支持 " + ", ".join(sorted(KNOT_KINDS)))
+                text(item["why"], path + ".why")
+                if isinstance(item["id"], str):
+                    knot_map[item["id"]] = item
+
+        candidates = wp["candidates"]
+        cand_map = {}
+        if not isinstance(candidates, list):
+            fail("window_plan.candidates", "必须是对象数组；无内部边界时可为空数组")
+        else:
+            for i, item in enumerate(candidates):
+                path = f"window_plan.candidates[{i}]"
+                if not obj(item, {"id", "time_sec", "shot_id", "grade", "reason"}, path, {"seam"}):
+                    continue
+                identity(item, path)
+                moment_ok = number(item["time_sec"], path + ".time_sec")
+                shot_ok = text(item["shot_id"], path + ".shot_id")
+                if shot_ok and item["shot_id"] not in shot_map:
+                    fail(path + ".shot_id", "未知镜头引用")
+                elif moment_ok and shot_ok:
+                    shot = shot_map[item["shot_id"]]
+                    if not shot["start"] - EPS <= item["time_sec"] <= shot["end"] + EPS:
+                        fail(path + ".time_sec", "候选时刻须位于所属镜头闭区间")
+                if not isinstance(item["grade"], str) or item["grade"] not in CANDIDATE_GRADES:
+                    fail(path + ".grade", "仅支持 A、B、C；X 类位置不登记为候选")
+                text(item["reason"], path + ".reason")
+                if "seam" in item:
+                    text(item["seam"], path + ".seam")
+                if isinstance(item["id"], str) and moment_ok:
+                    cand_map[item["id"]] = item
+
+        frames_map = {x["id"]: x for _, x in frames if isinstance(x.get("id"), str)}
+        shot_order = [x for _, x in shots]
+        transition_pairs = {(x.get("from_shot"), x.get("to_shot")) for x in project.get("transitions", []) if isinstance(x, dict)}
+        cost_map = {x["id"]: x for x in project.get("cost", []) if isinstance(x, dict) and isinstance(x.get("id"), str)}
+        knowledge_map = {x["id"]: x for x in project.get("knowledge", []) if isinstance(x, dict) and isinstance(x.get("id"), str)}
+        vfx_map = {x["id"]: x for x in project.get("vfx", []) if isinstance(x, dict) and isinstance(x.get("id"), str)}
+        form_map = {x["id"]: x for x in project.get("forms", []) if isinstance(x, dict) and isinstance(x.get("id"), str)}
+        attrition_map = {x["id"]: x for x in project["scene"].get("attrition", []) if isinstance(x, dict) and isinstance(x.get("id"), str)}
+
+        windows = wp["windows"]
+        win_map = {}
+        if not isinstance(windows, list) or not windows:
+            fail("window_plan.windows", "须为非空窗口数组")
+            return
+        for i, item in enumerate(windows):
+            path = f"window_plan.windows[{i}]"
+            if not obj(item, {"id", "start", "end", "shot_ids", "knot_ids", "opening_state",
+                              "closing_state", "entry_frame", "exit_frame", "carries",
+                              "fallback_splits", "risk"}, path, {"fallback"}):
+                continue
+            identity(item, path)
+            start_ok = number(item["start"], path + ".start")
+            end_ok = number(item["end"], path + ".end")
+            if start_ok and end_ok:
+                if item["start"] < -EPS or item["end"] <= item["start"] or item["end"] > duration + EPS:
+                    fail(path, "时间须满足 0 <= start < end <= duration_sec")
+            refs(item["shot_ids"], shot_map, path + ".shot_ids")
+            refs(item["knot_ids"], knot_map, path + ".knot_ids", nonempty=False)
+            for key in ("opening_state", "closing_state"):
+                if text(item[key], path + "." + key):
+                    execution_text(item[key], path + "." + key, "窗口状态")
+                    layer_texts.append((item[key], path + "." + key))
+            entry = text(item["entry_frame"], path + ".entry_frame")
+            exit_ok = text(item["exit_frame"], path + ".exit_frame")
+            if entry and item["entry_frame"] not in frames_map:
+                fail(path + ".entry_frame", "未知关键帧引用")
+            if exit_ok and item["exit_frame"] not in frames_map:
+                fail(path + ".exit_frame", "未知关键帧引用")
+            if entry and exit_ok and start_ok and end_ok and item["entry_frame"] in frames_map and item["exit_frame"] in frames_map:
+                if abs(frames_map[item["entry_frame"]]["time_sec"] - item["start"]) > EPS:
+                    fail(path + ".entry_frame", "入口帧时刻须等于窗口起点")
+                if abs(frames_map[item["exit_frame"]]["time_sec"] - item["end"]) > EPS:
+                    fail(path + ".exit_frame", "出口帧时刻须等于窗口终点")
+            carries = item["carries"]
+            if obj(carries, {"text"}, path + ".carries", set(CARRY_KEYS)):
+                if text(carries["text"], path + ".carries.text"):
+                    execution_text(carries["text"], path + ".carries.text", "接缝包")
+                    layer_texts.append((carries["text"], path + ".carries.text"))
+                for key in CARRY_KEYS:
+                    if key not in carries:
+                        continue
+                    value = carries[key]
+                    if not strings(value, f"{path}.carries.{key}", nonempty=True, unique=True):
+                        continue
+                    mapping = {"vfx": vfx_map, "forms": form_map, "costs": cost_map,
+                               "knowledge": knowledge_map, "tracks": track_map,
+                               "attrition": attrition_map}[key]
+                    for ref in value:
+                        if ref not in mapping:
+                            fail(f"{path}.carries.{key}", f"未知引用 {ref}")
+            splits = item["fallback_splits"]
+            if strings(splits, path + ".fallback_splits", nonempty=False, unique=True):
+                for ref in splits:
+                    if ref not in cand_map:
+                        fail(path + ".fallback_splits", "未知切点候选 " + ref)
+                    elif start_ok and end_ok and not item["start"] + EPS < cand_map[ref]["time_sec"] < item["end"] - EPS:
+                        fail(path + ".fallback_splits", "降级切点须位于窗口内部 " + ref)
+            if not isinstance(item["risk"], str) or item["risk"] not in RISKS:
+                fail(path + ".risk", "仅支持 low、high")
+            elif item["risk"] == "high":
+                if "fallback" not in item:
+                    fail(path + ".fallback", "高风险窗口须写保底构图")
+                elif text(item["fallback"], path + ".fallback"):
+                    execution_text(item["fallback"], path + ".fallback", "保底构图")
+                    layer_texts.append((item["fallback"], path + ".fallback"))
+                if isinstance(splits, list) and not splits:
+                    fail(path + ".fallback_splits", "高风险窗口须给可执行的降级切点")
+            elif "fallback" in item:
+                fail(path + ".fallback", "低风险窗口不登记保底构图；需要保底说明该窗应标 high")
+            if isinstance(item["id"], str):
+                win_map[item["id"]] = item
+        numeric = all(isinstance(window.get("start"), (int, float)) and not isinstance(window.get("start"), bool)
+                      and isinstance(window.get("end"), (int, float)) and not isinstance(window.get("end"), bool)
+                      for window in windows)
+        if numeric:
+            cursor = 0
+            for item in windows:
+                if abs(item["start"] - cursor) > EPS:
+                    fail("window_plan.windows", "窗口须按序连续覆盖全片，不得有缺口、重叠或顺序错误")
+                    break
+                cursor = item["end"]
+            if windows and abs(cursor - duration) > EPS:
+                fail("window_plan.windows", "最后一个窗口须结束于总时长")
+        if errors:
+            return
+
+        assigned = {key: [] for key in knot_map}
+        for index, item in enumerate(windows):
+            path = f"window_plan.windows[{index}]"
+            expected = [shot["id"] for shot in shot_order
+                        if min(item["end"], shot["end"]) - max(item["start"], shot["start"]) > EPS]
+            if isinstance(item["shot_ids"], list) and item["shot_ids"] != expected:
+                fail(path + ".shot_ids", "须按顺序列出与窗口有正时长交集的全部镜头；窗口可从镜头中部起止")
+            if isinstance(item["knot_ids"], list):
+                for knot_id in item["knot_ids"]:
+                    if knot_id in assigned:
+                        assigned[knot_id].append(item)
+            if tracked and isinstance(item["shot_ids"], list):
+                for left_id, right_id in zip(item["shot_ids"], item["shot_ids"][1:]):
+                    left_shot, right_shot = shot_map.get(left_id), shot_map.get(right_id)
+                    if left_shot and right_shot and left_shot.get("track") != right_shot.get("track") \
+                            and (left_id, right_id) not in transition_pairs:
+                        fail(path + ".shot_ids", "同一窗口内切换动作线须有世界内转场；不能只靠硬切")
+            if index > 0:
+                previous = windows[index - 1]
+                left_shot = shot_map[previous["shot_ids"][-1]]
+                right_shot = shot_map[item["shot_ids"][0]]
+                if not tracked or left_shot.get("track") == right_shot.get("track"):
+                    if previous["closing_state"] != item["opening_state"]:
+                        fail(path + ".opening_state", "同一动作线内，前窗出口与后窗入口须逐字相等")
+                elif (left_shot["id"], right_shot["id"]) not in transition_pairs:
+                    fail(path + ".start", "跨动作线的窗口边界须有世界内转场作载体；不能只靠硬切")
+                boundary_transition = next(
+                    (t for t in project.get("transitions", [])
+                     if isinstance(t, dict) and t.get("from_shot") == left_shot["id"] and t.get("to_shot") == right_shot["id"]),
+                    None,
+                )
+                if boundary_transition is not None and boundary_transition.get("layer") == "post":
+                    fail(path + ".start", "窗口接缝不能用呈现层转场；下一窗不知道它存在，接缝会跳")
+                if previous["exit_frame"] != item["entry_frame"]:
+                    fail(path + ".entry_frame", "内部边界两侧须共用同一张交接帧；前窗出口即后窗入口")
+                shared = frames_map.get(item["entry_frame"])
+                if shared is not None and shared.get("role") != "handoff":
+                    fail(path + ".entry_frame", "内部边界帧须为 handoff；它同时作为前窗末帧与后窗首帧条件")
+                matches = [c for c in cand_map.values() if abs(c["time_sec"] - item["start"]) <= EPS]
+                if not matches:
+                    fail(path + ".start", "内部边界须引用一个已登记的切点候选")
+                elif len(matches) > 1:
+                    fail(path + ".start", "同一边界只能有一个切点候选")
+                else:
+                    candidate = matches[0]
+                    if candidate["grade"] == "C":
+                        if item["risk"] != "high":
+                            fail(path + ".risk", "C 级边界由后窗承担风险，该窗须标 high")
+                        if not item.get("fallback") or not item["fallback_splits"]:
+                            fail(path + ".fallback", "C 级边界须写保底构图与非空降级切点")
+        for knot_id, found in assigned.items():
+            if len(found) != 1:
+                fail(f"window_plan.knots.{knot_id}", "每个关联簇须恰好落在一个窗口内；拆簇须改设计，不硬拆")
+            elif found:
+                window = found[0]
+                knot = knot_map[knot_id]
+                if not set(knot["shot_ids"]).issubset(set(window["shot_ids"])):
+                    fail(f"window_plan.knots.{knot_id}", "关联簇的镜头须全部落在同一个窗口内")
+                spans = [shot_map[x] for x in knot["shot_ids"] if x in shot_map]
+                if spans:
+                    knot_start = min(x["start"] for x in spans)
+                    knot_end = max(x["end"] for x in spans)
+                    if knot_start < window["start"] - EPS or knot_end > window["end"] + EPS:
+                        fail(f"window_plan.knots.{knot_id}", "关联簇内容跨越窗口边界；簇必须完整落在窗口时间范围内")
+
+        # 窗口边界落在镜头中部时，必须对齐该镜 execution 的 cue 边界，否则执行稿会切在半句动作上。
+        for index, window in enumerate(windows):
+            for key, moment in (("start", window["start"]), ("end", window["end"])):
+                holder = next((shot for shot in shot_order if shot["start"] + EPS < moment < shot["end"] - EPS), None)
+                if holder is None:
+                    continue
+                execution = holder.get("execution")
+                cues = execution.get("cues", []) if isinstance(execution, dict) else []
+                aligned = any(
+                    isinstance(cue, dict)
+                    and (abs(cue.get("start", -1) - moment) <= EPS or abs(cue.get("end", -1) - moment) <= EPS)
+                    for cue in cues
+                )
+                if not aligned:
+                    fail(f"window_plan.windows[{index}].{key}",
+                         "窗口边界落在镜头中部时须对齐该镜 cue 边界；否则执行稿会切在半句动作上")
+
+        if max_window is not None:
+            for index, item in enumerate(windows):
+                if item["end"] - item["start"] > max_window + EPS:
+                    fail(f"window_plan.windows[{index}]", "窗口超过声明的 max_window_sec")
+            for knot_id, knot in knot_map.items():
+                spans = [shot_map[x] for x in knot["shot_ids"] if x in shot_map]
+                if spans:
+                    span = max(x["end"] for x in spans) - min(x["start"] for x in spans)
+                    if span > max_window + EPS:
+                        fail(f"window_plan.knots.{knot_id}",
+                             "关联簇跨度超过窗口上限；须改设计（遮挡、切镜、压缩征兆），不硬拆")
+
+        for index, item in enumerate(windows):
+            if not item["fallback_splits"]:
+                continue
+            points = [item["start"]] + sorted(cand_map[x]["time_sec"] for x in item["fallback_splits"] if x in cand_map) + [item["end"]]
+            if max_window is not None:
+                for left, right in zip(points, points[1:]):
+                    if right - left > max_window + EPS:
+                        fail(f"window_plan.windows[{index}].fallback_splits",
+                             "降级切点切完仍有分段超过 max_window_sec")
+
+        def merged_spans(ids):
+            spans = [(shot_map[x]["start"], shot_map[x]["end"]) for x in ids if x in shot_map]
+            merged = []
+            for start, end in sorted(spans):
+                if merged and start <= merged[-1][1] + EPS:
+                    merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+                else:
+                    merged.append((start, end))
+            return merged
+
+        def covers(ids, moment):
+            return any(start - EPS <= moment < end - EPS for start, end in merged_spans(ids))
+
+        for index, item in enumerate(windows[1:], 1):
+            previous = windows[index - 1]
+            moment = item["start"]
+            required = {"vfx": [], "forms": [], "costs": [], "knowledge": [], "tracks": [], "attrition": []}
+            for cost in cost_map.values():
+                beat = beat_map.get(cost.get("from_beat"))
+                if cost.get("irreversible") is True and beat and beat["start"] < moment - EPS:
+                    required["costs"].append(cost["id"])
+            for know in knowledge_map.values():
+                beat = beat_map.get(know.get("from_beat"))
+                resolved = beat_map.get(know.get("resolved_by")) if know.get("resolved_by") else None
+                if beat and beat["start"] < moment - EPS and (resolved is None or resolved["end"] > moment + EPS):
+                    required["knowledge"].append(know["id"])
+            for mark in attrition_map.values():
+                beat = beat_map.get(mark.get("from_beat"))
+                if beat and beat["start"] < moment - EPS:
+                    required["attrition"].append(mark["id"])
+            for effect in vfx_map.values():
+                if effect.get("layer") == "world" and covers(effect.get("shot_ids", []), moment):
+                    required["vfx"].append(effect["id"])
+                elif effect.get("layer") == "post":
+                    spans = merged_spans(effect.get("shot_ids", []))
+                    if spans and spans[0][0] < moment - EPS and spans[-1][1] > moment + EPS:
+                        fail("window_plan.windows", "呈现层特效不能跨窗口边界；下一窗不知道它存在，接缝会跳")
+            for form in form_map.values():
+                spans = merged_spans(form.get("shot_ids", []))
+                if spans and spans[0][0] < moment - EPS and spans[-1][1] > moment + EPS:
+                    if form.get("method") in ("occlusion", "morph"):
+                        fail("window_plan.windows", "形态切换不得跨窗口边界；遮挡或连续形变须整簇同窗")
+                    elif form.get("id") not in item["carries"].get("forms", []):
+                        required["forms"].append(form["id"])
+            if tracked:
+                left = shot_map[previous["shot_ids"][-1]].get("track") if previous["shot_ids"] else None
+                right = shot_map[item["shot_ids"][0]].get("track") if item["shot_ids"] else None
+                if left and right and left != right:
+                    required["tracks"] = [left, right]
+            missing = []
+            for key, values in required.items():
+                carried = set(item["carries"].get(key, []))
+                for value in values:
+                    if value not in carried:
+                        missing.append(f"{key}:{value}")
+            if missing:
+                fail(f"window_plan.windows[{index}].carries",
+                     "接缝包缺少跨界项 " + ", ".join(missing[:4]) + "；下一窗不知道这些状态就会错")
+
+    if windowed and WINDOW_PLAN in project and not errors:
+        check_window_plan()
+
     # 扫描全部已登记 ID（含 B03 这类短 ID），按标识符边界匹配，不把普通单词里的子串误判为 ID
     leaked = sorted(ids)
     if leaked:
@@ -903,7 +1252,13 @@ def render(project):
             asset_text += f"- {entry['id']}｜{entry['mark']}（起于 {entry['from_beat']}）：{entry['consequence']}\n"
 
     def shot_text(shot, offset=0):
-        result = f"### {shot['id']} · {_time(shot['start'] - offset)}–{_time(shot['end'] - offset)}秒\n\n全场时间：{_time(shot['start'])}–{_time(shot['end'])}秒。资产：{', '.join(shot['asset_ids'])}。\n\n起态：{shot['opening_state']}\n\n"
+        result = f"### {shot['id']} · {_time(shot['start'] - offset)}–{_time(shot['end'] - offset)}秒\n\n全场时间：{_time(shot['start'])}–{_time(shot['end'])}秒。资产：{', '.join(shot['asset_ids'])}。\n\n"
+        if windows_by_shot:
+            containers = windows_by_shot.get(shot["id"], [])
+            if containers:
+                labels = "、".join(f"{window['id']}（{_time(window['start'])}–{_time(window['end'])} 秒）" for window in containers)
+                result += f"生成窗口：{labels}。\n\n"
+        result += f"起态：{shot['opening_state']}\n\n"
         for ref in shot["beat_ids"]:
             beat = beats[ref]
             start = max(shot["start"], beat["start"])
@@ -949,13 +1304,157 @@ def render(project):
 
     tracks = {x["id"]: x for x in project.get("tracks", [])}
     transitions = {x["from_shot"]: x for x in project.get("transitions", [])}
-    board = "# 完整分镜\n\n动作拍可以并行；跨镜动作按观察窗口接续。未登记转场的切点一律硬切。\n\n" + "".join(shot_text(x) for x in project["shots"])
+    window_plan = project.get(WINDOW_PLAN)
+    windows_by_shot = {}
+    if window_plan:
+        for window in window_plan["windows"]:
+            for shot_id in window["shot_ids"]:
+                windows_by_shot.setdefault(shot_id, []).append(window)
+    frame_map = {x["id"]: x for x in project["keyframes"]}
+    candidate_map = {x["id"]: x for x in window_plan["candidates"]} if window_plan else {}
+    shot_number = {x["id"]: i for i, x in enumerate(project["shots"], 1)}
+
+    def window_plan_text():
+        cap = window_plan["capability"]
+        bits = [f"能力来源：{CAPABILITY_LABELS.get(cap['source'], cap['source'])}"]
+        if "max_window_sec" in cap:
+            bits.append(f"能力上限 {_time(cap['max_window_sec'])} 秒")
+        if "arbitrary_start" in cap:
+            bits.append("可任意起点" if cap["arbitrary_start"] else "仅顺序生成")
+        if "frame_conditioning" in cap:
+            bits.append("帧条件：" + FRAME_CONDITION_LABELS.get(cap["frame_conditioning"], cap["frame_conditioning"]))
+        if "internal_cuts" in cap:
+            bits.append("允许窗口内剪辑" if cap["internal_cuts"] else "单镜连续生成")
+        if "audio" in cap:
+            bits.append("含音频" if cap["audio"] else "不含音频")
+        text = "## 生成窗口规划\n\n" + "；".join(bits) + "。\n\n"
+        text += "### 关联簇\n\n"
+        for knot in window_plan["knots"]:
+            text += f"- {knot['id']}｜{KNOT_LABELS.get(knot['kind'], knot['kind'])}｜镜头 {', '.join(knot['shot_ids'])}｜{knot['why']}\n"
+        text += "\n### 切点候选\n\n"
+        for candidate in window_plan["candidates"]:
+            seam = f"｜接缝：{candidate['seam']}" if "seam" in candidate else ""
+            text += f"- {candidate['id']}｜{_time(candidate['time_sec'])} 秒｜{candidate['shot_id']}｜{candidate['grade']} 级｜{candidate['reason']}{seam}\n"
+        text += "\n### 窗口\n\n"
+        for window in window_plan["windows"]:
+            text += f"- {window['id']}｜{_time(window['start'])}–{_time(window['end'])} 秒｜镜头 {', '.join(window['shot_ids'])}｜含簇 {', '.join(window['knot_ids']) or '无'}\n"
+            text += f"  入口帧：{window['entry_frame']}（{_time(window['start'])} 秒）；出口帧：{window['exit_frame']}（{_time(window['end'])} 秒）\n"
+            text += f"  入口状态：{window['opening_state']}\n  出口状态：{window['closing_state']}\n"
+            carries = window["carries"]
+            parts = []
+            for key, label in (("costs", "代价"), ("knowledge", "所知"), ("vfx", "特效"),
+                               ("forms", "形态"), ("tracks", "动作线"), ("attrition", "痕迹")):
+                if carries.get(key):
+                    parts.append(f"{label} {', '.join(carries[key])}")
+            prefix = "；".join(parts) + "。" if parts else ""
+            text += f"  接缝包：{prefix}{carries['text']}\n"
+            text += f"  风险：{window['risk']}。"
+            if "fallback" in window:
+                text += f"保底构图：{window['fallback']}。"
+            if window["fallback_splits"]:
+                text += f"降级切点：{', '.join(window['fallback_splits'])}。"
+            text += "\n"
+        if "notes" in window_plan:
+            text += "\n### 判断记录\n\n" + window_plan["notes"] + "\n"
+        return text + "\n"
+
+    def window_video():
+        cap = window_plan["capability"]
+        result = "# 通用导演执行文本\n\n按生成窗口组织；每窗可独立复制。窗口内的镜头是剪辑点，不是重新起手。本稿未适配特定平台语法。\n\n"
+        for index, window in enumerate(window_plan["windows"], 1):
+            window_shots = [shots[key] for key in window["shot_ids"]]
+            first, last = window_shots[0], window_shots[-1]
+            offset = window["start"]
+            result += f"## 生成窗口 {index}（成片 {_time(window['start'])}–{_time(window['end'])} 秒）\n\n"
+            result += f"含镜头 {shot_number[first['id']]}–{shot_number[last['id']]}。"
+            if "max_window_sec" in cap:
+                result += f"本窗能力上限 {_time(cap['max_window_sec'])} 秒。"
+            result += "\n\n"
+            result += f"入口静帧：{frame_map[window['entry_frame']]['prompt']}\n\n"
+            result += f"出口静帧：{frame_map[window['exit_frame']]['prompt']}\n\n"
+            result += f"接缝包：{window['carries']['text']}\n\n"
+            contexts = []
+            for segment in project["segments"]:
+                if set(segment["shot_ids"]) & set(window["shot_ids"]) and segment["prompt_context"] not in contexts:
+                    contexts.append(segment["prompt_context"])
+            result += "本窗规则与场景：" + "；".join(contexts) + "\n\n"
+            used_assets = {key for shot in window_shots for key in shot["asset_ids"]}
+            result += "资产锚点：\n\n"
+            for asset in assets:
+                if asset["id"] not in used_assets:
+                    continue
+                result += f"- {asset['name']}：{'；'.join(asset['anchors'])}。\n"
+                if "reference" in asset:
+                    binding = asset["reference"]
+                    result += f"  素材来源：{binding['source']}；控制：{binding['control']}；继承：{binding['keep']}；排除：{binding['exclude']}。\n"
+            window_ids = set(window["shot_ids"])
+            signatures = [x for x in project.get("vfx", []) if window_ids & set(x["shot_ids"])]
+            if signatures:
+                result += "\n签名特效（跨窗口外观保持一致）：\n\n"
+                for item in signatures:
+                    phases = "；".join(f"{LIFECYCLE_LABELS[key]}：{_clause(item['lifecycle'][key])}" for key in LIFECYCLE if key in item["lifecycle"])
+                    result += f"- {item['name']}：{_clause(item['look'])}。{phases}。\n"
+            for form in project.get("forms", []):
+                if window_ids & set(form["shot_ids"]):
+                    result += f"\n形态切换阶梯：{' → '.join(map(_clause, form['ladder']))}。切换中不提供无敌时间，身份锚点保持：{'；'.join(form['shared_anchors'])}。\n"
+            result += f"\n本窗起态：{window['opening_state']}\n\n"
+            for shot_index, shot in enumerate(window_shots, 1):
+                execution = shot["execution"]
+                first_shot = shot_index == 1
+                last_shot = shot is last
+                result += f"### 剪辑点 {shot_index}（本窗 {_time(shot['start'] - offset)}–{_time(shot['end'] - offset)} 秒）\n\n"
+                if not first_shot:
+                    result += f"起态：{execution['opening_state']}\n\n"
+                for cue in execution["cues"]:
+                    cue_start = max(cue["start"], window["start"])
+                    cue_end = min(cue["end"], window["end"])
+                    if cue_end - cue_start <= EPS:
+                        continue
+                    result += f"{_time(cue_start - offset)}–{_time(cue_end - offset)}秒：{cue['text']}\n\n"
+                result += f"摄影：{execution['camera']}\n\n特效：{execution['effects']}\n\n"
+                if "light" in execution:
+                    result += f"光照：{execution['light']}\n\n"
+                result += f"声音：{execution['sound']}\n\n"
+                if shot.get("risk") == "high":
+                    result += f"本镜生成风险高。若一次生成未得到可用结果，改用保底构图，世界状态不变：{shot['fallback']}\n\n"
+                if not last_shot:
+                    result += f"终态：{execution['end_state']}\n\n"
+                if shot["id"] in transitions and shot is not last:
+                    result += transition_text(transitions[shot["id"]], False)
+            result += f"本窗终态与承接：{window['closing_state']}\n\n"
+            if last["id"] in transitions and index < len(window_plan["windows"]):
+                result += transition_text(transitions[last["id"]], False, "本窗与下一窗之间的转场")
+            if window["risk"] == "high":
+                result += f"本窗生成风险高。若一次生成未得到可用结果，改用保底构图，世界状态不变：{window['fallback']}\n\n"
+                if window["fallback_splits"]:
+                    split_times = [f"{_time(candidate_map[key]['time_sec'])} 秒" for key in window["fallback_splits"] if key in candidate_map]
+                    result += "降级切点：" + "；".join(split_times) + "。切分后每段仍按原入口与出口条件生成。\n\n"
+            result += "返修卡：只改本窗时，入口与出口静帧、接缝包不变；若改关键相位，同步相邻窗与本窗帧。\n\n"
+        return result
+
+    board = "# 完整分镜\n\n动作拍可以并行；跨镜动作按观察窗口接续。未登记转场的切点一律硬切。\n\n"
+    if window_plan:
+        board += window_plan_text()
+    board += "".join(shot_text(x) for x in project["shots"])
+    window_frame_notes = {}
+    if window_plan:
+        for window in window_plan["windows"]:
+            entry, exit_frame = window["entry_frame"], window["exit_frame"]
+            if entry == exit_frame:
+                window_frame_notes.setdefault(entry, set()).add("窗口入口、出口")
+            else:
+                window_frame_notes.setdefault(entry, set()).add("窗口入口")
+                window_frame_notes.setdefault(exit_frame, set()).add("窗口出口")
     frame_text = "# 关键帧提示词\n\n"
     for frame in project["keyframes"]:
         segment = next(x for x in project["segments"] if frame["shot_id"] in x["shot_ids"])
         offset = shots[segment["shot_ids"][0]]["start"]
         role = ROLE_LABELS.get(frame.get("role"), "")
-        frame_text += f"## {frame['id']} · {frame['shot_id']} · 全场 {_time(frame['time_sec'])} 秒{role}\n\n制作段 {segment['id']}，段内 {_time(frame['time_sec']-offset)} 秒。\n\n资产：{', '.join(frame['asset_ids'])}。\n\n瞬间状态：{frame['state']}\n\n静图提示词：{frame['prompt']}\n\n"
+        notes = ""
+        if frame["id"] in window_frame_notes:
+            labels = window_frame_notes[frame["id"]]
+            notes = "｜窗口入口、出口" if labels == {"窗口入口", "窗口出口"} else "｜" + "、".join(sorted(labels))
+        frame_text += f"## {frame['id']} · {frame['shot_id']} · 全场 {_time(frame['time_sec'])} 秒{role}{notes}\n\n制作段 {segment['id']}，段内 {_time(frame['time_sec']-offset)} 秒。\n\n资产：{', '.join(frame['asset_ids'])}。\n\n瞬间状态：{frame['state']}\n\n静图提示词：{frame['prompt']}\n\n"
     video = "# 通用导演执行文本\n\n每段可独立复制；段内时间为编排意图，不是逐帧执行保证。本稿未适配特定平台语法。\n\n"
     for index, segment in enumerate(project["segments"], 1):
         segment_shots = [shots[key] for key in segment["shot_ids"]]
@@ -1001,9 +1500,26 @@ def render(project):
         handoff = [x for x in project["keyframes"] if x.get("role") == "handoff" and abs(x["time_sec"] - last["end"]) <= EPS]
         if handoff and index < len(project["segments"]):
             video += f"段界交接静图（本段末帧，亦为下段首帧条件）：{handoff[0]['prompt']}\n\n"
+    if window_plan:
+        video = window_video()
     review = "# 检查与承接\n\n- structural_status: pass\n- semantic_status: needs_review\n\n结构通过只说明数据满足交付契约。需逐项审阅能力边界、前因与反制、空间与受力、串并行动作耗时、静图时刻、镜外持续状态和视觉清晰度。作者登记的审阅与媒体观察不构成工具自动判定通过。\n\n## 制作段接点\n\n"
     for segment in project["segments"]:
         review += f"### {segment['id']}\n\n起态：{segment['opening_state']}\n\n终态：{segment['closing_state']}\n\n"
+    if window_plan:
+        cap = window_plan["capability"]
+        review += "## 窗口规划（结构已查簇归属、边界候选、接缝包与降级切点）\n\n"
+        review += f"- 能力来源：{CAPABILITY_LABELS.get(cap['source'], cap['source'])}"
+        if "max_window_sec" in cap:
+            review += f"；能力上限 {_time(cap['max_window_sec'])} 秒"
+        review += "\n"
+        for knot in window_plan["knots"]:
+            review += f"- 关联簇 {knot['id']}（{KNOT_LABELS.get(knot['kind'], knot['kind'])}）：镜头 {', '.join(knot['shot_ids'])}；{knot['why']}\n"
+        for window in window_plan["windows"]:
+            review += f"- 窗口 {window['id']}：{_time(window['start'])}–{_time(window['end'])} 秒，镜头 {', '.join(window['shot_ids'])}，簇 {', '.join(window['knot_ids']) or '无'}，风险 {window['risk']}"
+            if window["fallback_splits"]:
+                review += f"，降级切点 {', '.join(window['fallback_splits'])}"
+            review += "\n"
+        review += "\n簇是否真实成立、A 级切点是否稳定、接缝包是否足够、窗口长度是否由内容驱动，属语义审阅。\n\n"
     if "cost" in project:
         review += "## 代价结算（结构已查归属、起拍与不可逆项存在）\n\n"
         for entry in project["cost"]:
@@ -1078,27 +1594,45 @@ def export_bundle(project, target):
     return target
 
 
-MIGRATION_TODO = (
+LAYER_MIGRATION_TODO = (
     "需要并行意识空间（内景、识海、梦境、幻阵）时登记 tracks，并为每个节拍与镜头写 track、为内景镜头写 outer_state",
     "为反复出现或承担叙事功能的特效登记 vfx：归属、层级、尺度、功能、外观、生命周期、支出与制作路线",
     "存在变身、法相、化形时登记 forms：前后两套资产、共享身份锚点、遮挡阶梯、代价、持续与退出；所在节拍须为 pivotal",
     "只为需要被记住的空间或状态跳变登记 transitions；其余切点保持硬切",
 )
+WINDOW_MIGRATION_TODO = (
+    "为每场登记 window_plan：先标关联簇与切点候选，再定窗口；不默认任何时长上限",
+    "按用户声明或已核实的平台能力填 capability；上限未知时省略 max_window_sec，用切点阶梯",
+    "为每个内部边界补候选与共用 handoff 帧；为高风险窗补保底构图与非空降级切点",
+    "跨界的不可逆代价、所知、世界内特效、形态、痕迹与动作线写进 carries；窗口状态与接缝包文本不得含时码或内部 ID",
+)
+MIGRATION_TODO = LAYER_MIGRATION_TODO + WINDOW_MIGRATION_TODO
 
 
 def migrate(project):
-    """1.2 → 1.3 结构迁移：只改版本号，不生成任何自由文本。返回新数据与需手写清单。"""
+    """1.2/1.3 → 1.4 结构迁移：只改版本号，不生成任何自由文本。返回新数据与需手写清单。"""
     errors = validate(project)
     if errors:
         raise ValueError("源数据未通过校验，先修复再迁移：\n" + "\n".join(errors))
-    if project["schema_version"] != "1.2":
-        raise ValueError("migrate 只接受 1.2 数据；1.1 须先手写 1.2 的编舞字段（light、risk、role、marks、attrition、cost），1.3 无需迁移")
+    version = project["schema_version"]
+    if version == "1.4":
+        raise ValueError("已是 1.4，无需迁移")
+    if version not in ("1.2", "1.3"):
+        raise ValueError("migrate 只接受 1.2 或 1.3 数据；1.1 须先手写 1.2 的编舞字段（light、risk、role、marks、attrition、cost）")
     result = copy.deepcopy(project)
-    result["schema_version"] = "1.3"
+    if version == "1.2":
+        result["schema_version"] = "1.3"
+        errors = validate(result)
+        if errors:
+            raise ValueError("迁移到 1.3 未通过校验：\n" + "\n".join(errors))
+        todo = list(MIGRATION_TODO)
+    else:
+        todo = list(WINDOW_MIGRATION_TODO)
+    result["schema_version"] = "1.4"
     errors = validate(result)
     if errors:
         raise ValueError("迁移结果未通过校验：\n" + "\n".join(errors))
-    return result, list(MIGRATION_TODO)
+    return result, todo
 
 
 def main(argv=None):
@@ -1135,7 +1669,7 @@ def main(argv=None):
                     handle.close()
                     target.unlink()
                     raise
-            print(json.dumps({"structural_status": "pass", "semantic_status": "needs_review", "output": str(target), "schema_version": "1.3", "manual": todo}, ensure_ascii=False, indent=2))
+            print(json.dumps({"structural_status": "pass", "semantic_status": "needs_review", "output": str(target), "schema_version": "1.4", "manual": todo}, ensure_ascii=False, indent=2))
             return 0
         errors = validate(project)
         if errors:

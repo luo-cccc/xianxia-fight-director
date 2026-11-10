@@ -131,7 +131,7 @@ class PlanTests(unittest.TestCase):
     def test_all_examples_and_render(self):
         examples = sorted((ROOT / "examples").glob("*.json"))
         self.assertEqual(5, len(examples))
-        self.assertEqual({"1.3"}, {plan.load_project(path)["schema_version"] for path in examples})
+        self.assertEqual({"1.4"}, {plan.load_project(path)["schema_version"] for path in examples})
         for path in examples:
             with self.subTest(example=path.name):
                 project = plan.load_project(path)
@@ -140,12 +140,21 @@ class PlanTests(unittest.TestCase):
                 self.assertEqual(7, len(docs))
                 self.assertEqual(project, json.loads(docs["project.json"]))
                 video = docs["05-video-prompts.md"]
-                self.assertEqual(len(project["segments"]), video.count("本段起态："))
                 shots = {shot["id"]: shot for shot in project["shots"]}
-                for segment in project["segments"]:
-                    self.assertIn(shots[segment["shot_ids"][0]]["execution"]["opening_state"], video)
-                    self.assertIn(shots[segment["shot_ids"][-1]]["execution"]["end_state"], video)
-                    self.assertIn(segment["prompt_context"], video)
+                if "window_plan" in project:
+                    self.assertEqual(len(project["window_plan"]["windows"]), video.count("本窗起态："))
+                    for window in project["window_plan"]["windows"]:
+                        self.assertIn(window["opening_state"], video)
+                        self.assertIn(window["closing_state"], video)
+                        self.assertIn(window["carries"]["text"], video)
+                    for segment in project["segments"]:
+                        self.assertIn(segment["prompt_context"], video)
+                else:
+                    self.assertEqual(len(project["segments"]), video.count("本段起态："))
+                    for segment in project["segments"]:
+                        self.assertIn(shots[segment["shot_ids"][0]]["execution"]["opening_state"], video)
+                        self.assertIn(shots[segment["shot_ids"][-1]]["execution"]["end_state"], video)
+                        self.assertIn(segment["prompt_context"], video)
                 self.assertIn("semantic_status: needs_review", docs["06-review.md"])
                 for beat in project["beats"]:
                     self.assertIn(beat["action"], docs["03-storyboard.md"])
@@ -306,12 +315,17 @@ class PlanTests(unittest.TestCase):
 
     def test_schema_upgrade_required(self):
         self.assertEqual([], plan.validate(self.project))
-        for version in ("1.0", 1.1, 1.2, 1.3, "1.4", "1.1 "):
+        for version in ("1.0", 1.1, "1.5", "1.1 "):
             self.rejects(lambda p, version=version: p.update(schema_version=version), "升级")
+        for version in ("1.2", "1.3", "1.4"):
+            changed = make_craft_project()
+            changed["schema_version"] = version
+            self.assertEqual([], plan.validate(changed), version)
 
     def test_one_one_rejects_one_two_fields(self):
         self.rejects(lambda p: p.update(cost=[]), "仅 1.2 支持该字段")
         self.rejects(lambda p: p.update(knowledge=[]), "仅 1.2 支持该字段")
+        self.rejects(lambda p: p.update(window_plan={}), "仅 1.4 支持")
         for change in (lambda p: p["shots"][0].update(light="x"),
                        lambda p: p["shots"][0].update(risk="low"),
                        lambda p: p["keyframes"][0].update(role="single"),
