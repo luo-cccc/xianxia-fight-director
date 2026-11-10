@@ -14,8 +14,8 @@ plan = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(plan)
 
 
-def make_project():
-    """A small 1.1 plan independent of concurrently edited example files."""
+def _make_seed():
+    """A small pre-1.2 seed used only to build the 1.4 fixture."""
     assets = [
         {"id": key, "kind": kind, "name": name, "anchors": [name + "稳定锚点"],
          "states": [], "image_prompt": name + "资产图"}
@@ -40,8 +40,7 @@ def make_project():
         frames.append({"id": f"frame_{i}", "shot_id": f"shot_{i}", "time_sec": i * 4,
                        "asset_ids": asset_ids[:], "state": states[i], "prompt": "接触点清晰的静图"})
     return {
-        "schema_version": "1.1", "title": "结构测试战斗", "duration_sec": 16, "aspect_ratio": "16:9", "style": "写实仙侠",
-        "assumptions": ["测试补充假设"], "constraints": ["测试硬约束"],
+        "schema_version": "1.1", "title": "结构测试战斗", "duration_sec": 16, "aspect_ratio": "16:9", "style": "写实仙侠",        "assumptions": ["测试补充假设"], "constraints": ["测试硬约束"],
         "design": {"goals": ["剑修要逼退体修夺取通路", "体修要守住通路保护身后阵眼"],
                    "rules": ["测试全场规则"], "turns": ["接触后改变受力"], "outcome": "全场结局专用文本",
                    "viewing_tasks": ["观看任务专用文本"]},
@@ -68,9 +67,9 @@ def make_project():
 
 
 def make_craft_project():
-    """The same plan upgraded to 1.2, satisfying every craft requirement."""
-    project = make_project()
-    project["schema_version"] = "1.2"
+    """The 1.4 fixture satisfying every craft requirement."""
+    project = _make_seed()
+    project["schema_version"] = "1.4"
     lights = ["晴冷顶光压住两人，无术法光源主导",
               "剑锋微光成为画面主光，体修半边入影",
               "剑锋微光仍主导，断碑背面全暗",
@@ -117,6 +116,11 @@ def make_craft_project():
          "asset_ids": far[:], "state": "断碑挡住退路", "prompt": "收势前的静图，顶光回到两人之间"},
     ]
     return project
+
+
+def make_project():
+    """The standard 1.4 fixture; kept as a separate name for older test callers."""
+    return make_craft_project()
 
 
 class PlanTests(unittest.TestCase):
@@ -241,7 +245,8 @@ class PlanTests(unittest.TestCase):
         beat["start"] = 0
         beat["end"] = changed["shots"][1]["end"]
         for item in changed["beats"]:
-            item["requires"] = []
+            if "adaptation" not in item.get("marks", []):
+                item["requires"] = []
         for shot in changed["shots"][:2]:
             if beat["id"] not in shot["beat_ids"]:
                 shot["beat_ids"].append(beat["id"])
@@ -313,25 +318,11 @@ class PlanTests(unittest.TestCase):
         self.assertEqual([], plan.validate(changed))
         self.assertIn("不继承图中姿势", plan.render(changed)["02-assets.md"])
 
-    def test_schema_upgrade_required(self):
+    def test_schema_version_is_strict(self):
         self.assertEqual([], plan.validate(self.project))
-        for version in ("1.0", 1.1, "1.5", "1.1 "):
-            self.rejects(lambda p, version=version: p.update(schema_version=version), "升级")
-        for version in ("1.2", "1.3", "1.4"):
-            changed = make_craft_project()
-            changed["schema_version"] = version
-            self.assertEqual([], plan.validate(changed), version)
-
-    def test_one_one_rejects_one_two_fields(self):
-        self.rejects(lambda p: p.update(cost=[]), "仅 1.2 支持该字段")
-        self.rejects(lambda p: p.update(knowledge=[]), "仅 1.2 支持该字段")
-        self.rejects(lambda p: p.update(window_plan={}), "仅 1.4 支持")
-        for change in (lambda p: p["shots"][0].update(light="x"),
-                       lambda p: p["shots"][0].update(risk="low"),
-                       lambda p: p["keyframes"][0].update(role="single"),
-                       lambda p: p["scene"].update(attrition=[]),
-                       lambda p: p["beats"][0].update(marks=["pivotal"])):
-            self.rejects(change, "未知字段")
+        for version in ("1.0", "1.1", "1.2", "1.3", "1.5", "1.4 ", 1.4):
+            self.rejects(lambda p, version=version: p.update(schema_version=version),
+                         "只接受 schema_version")
 
     def test_execution_and_context_required_strict_fields(self):
         self.rejects(lambda p: p["shots"][0].pop("execution"), "缺少字段 execution")
@@ -431,7 +422,9 @@ class PlanTests(unittest.TestCase):
     def test_video_assets_are_segment_union_with_local_references(self):
         changed = copy.deepcopy(self.project)
         changed["shots"][2]["asset_ids"].remove("late_prop")
-        changed["keyframes"][2]["asset_ids"].remove("late_prop")
+        for frame in changed["keyframes"]:
+            if frame["shot_id"] == "shot_2" and "late_prop" in frame["asset_ids"]:
+                frame["asset_ids"].remove("late_prop")
         changed["assets"][-1]["reference"] = {"source": "断碑参考.png", "control": "外观局部控制", "keep": "保留碑面裂纹", "exclude": "不继承旧光线"}
         unused = copy.deepcopy(changed["assets"][-1])
         unused.update(id="unused_prop", name="未用资产", anchors=["未用锚点"],

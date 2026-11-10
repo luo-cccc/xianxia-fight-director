@@ -312,11 +312,13 @@ class WindowPlanTests(unittest.TestCase):
         self.assertTrue(any("形态切换不得跨窗口边界" in error for error in plan.validate(project)),
                         plan.validate(project))
 
-    def test_one_three_rejects_window_plan(self):
-        project = make_craft_project()
-        project["schema_version"] = "1.3"
-        project["window_plan"] = copy.deepcopy(self.project["window_plan"])
-        self.assertTrue(any("仅 1.4 支持" in error for error in plan.validate(project)), plan.validate(project))
+    def test_old_versions_are_rejected(self):
+        for version in ("1.1", "1.2", "1.3"):
+            project = make_craft_project()
+            project["schema_version"] = version
+            project["window_plan"] = copy.deepcopy(self.project["window_plan"])
+            self.assertTrue(any("只接受 schema_version" in error for error in plan.validate(project)),
+                            plan.validate(project))
 
     def test_capability_shape(self):
         self.rejects(lambda p: p["window_plan"]["capability"].update(source="guessed"), "仅支持")

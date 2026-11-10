@@ -84,7 +84,7 @@
 
 遮挡制造悬念时，用声音、痕迹、反应或揭示恢复因果。新增大效果复查手、器物、节点和接触点是否被遮住；群战保留阵营与友军安全关系。
 
-### 签名特效与制作路线（1.3 起，1.4 继承）
+### 签名特效与制作路线
 
 反复出现或承担叙事功能的效果登记进 `vfx`：归属、世界内或呈现层、尺度、功能、外观、生命周期、支出与制作路线。设计先回答四问——谁的、显示什么、花掉什么留下什么、怎么做——八组分类、两层判法与生命周期见 [vfx-language.md](vfx-language.md)，介质与身体反应见 [vfx-environment-and-body.md](vfx-environment-and-body.md)，制作路线与难度见 [vfx-production.md](vfx-production.md)。变身、飞行与意识空间见 [space-time-and-form.md](space-time-and-form.md)，转场见 [transitions.md](transitions.md)。
 
@@ -109,7 +109,7 @@
 
 ### JSON 对接
 
-字段与时间规则统一见 [delivery-contract.md](delivery-contract.md)，按存档声明的版本填写。镜头执行窗口由作者按当前相位另写，不能把跨镜完整动作自动截成执行稿；段上下文只保留本段适用条件。有 1.4 窗口规划时，05 按窗口输出，窗口内的镜头是剪辑点；入口/出口静帧、接缝包与降级切点随窗给出。上述支撑、受力和环境信息放入既有状态、行动、摄影或效果文字，不新增字段。本节的光照、累积痕迹、生成风险在 1.2 分别对应镜头 `light`/`execution.light`、`scene.attrition`、`risk`/`fallback`，关键帧角色 `role` 同见该契约；1.4 的窗口字段同见该契约与 [window-planning.md](window-planning.md)。精确双时轴、重放、插叙另用自然语言说明或明确扩展需求。
+字段与时间规则统一见 [delivery-contract.md](delivery-contract.md)，按存档声明的版本填写。镜头执行窗口由作者按当前相位另写，不能把跨镜完整动作自动截成执行稿；段上下文只保留本段适用条件。有 1.4 窗口规划时，05 按窗口输出，窗口内的镜头是剪辑点；入口/出口静帧、接缝包与降级切点随窗给出。上述支撑、受力和环境信息放入既有状态、行动、摄影或效果文字，不新增字段。本节的光照、累积痕迹、生成风险分别对应镜头 `light`/`execution.light`、`scene.attrition`、`risk`/`fallback`，关键帧角色 `role` 同见该契约；1.4 的窗口字段同见该契约与 [window-planning.md](window-planning.md)。精确双时轴、重放、插叙另用自然语言说明或明确扩展需求。
 
 ## 生成风险与保底构图
 

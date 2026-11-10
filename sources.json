@@ -1,5 +1,5 @@
 {
-  "version": "1.5",
+  "version": "2.0",
   "review_date": "2026-11-10",
   "v1_5_note": "生成窗口规划为原创方法，未新增外部来源。",
   "policy": "独立编写；不复制许可不明正文代码或案例；MIT仅限其证据范围",
@@ -162,7 +162,11 @@
       "adoption": "method_reference_only",
       "copied_text_or_code": false,
       "method": "稳定身份与可变状态分离，资产图姿态不锁定后续镜头",
-      "target_files": ["SKILL.md", "references/assets-and-keyframes.md", "references/delivery-contract.md"],
+      "target_files": [
+        "SKILL.md",
+        "references/assets-and-keyframes.md",
+        "references/delivery-contract.md"
+      ],
       "license_evidence": "仓库顶层标示Apache-2.0；本次只参考方法，未复制正文或代码"
     },
     {
@@ -174,7 +178,12 @@
       "adoption": "method_reference_only",
       "copied_text_or_code": false,
       "method": "逐镜起止姿态、身体支点、力传递和环境反馈",
-      "target_files": ["SKILL.md", "references/camera-and-vfx.md", "references/continuity-and-timing.md", "references/review-and-repair.md"],
+      "target_files": [
+        "SKILL.md",
+        "references/camera-and-vfx.md",
+        "references/continuity-and-timing.md",
+        "references/review-and-repair.md"
+      ],
       "license_evidence": "本次未确认完整许可范围；仅方法参考，不复制正文、源码或受控内容"
     },
     {
@@ -186,7 +195,11 @@
       "adoption": "method_reference_only",
       "copied_text_or_code": false,
       "method": "巨物同框尺度、空间层次和风向一致性，按场景需要使用",
-      "target_files": ["references/assets-and-keyframes.md", "references/camera-and-vfx.md", "references/continuity-and-timing.md"],
+      "target_files": [
+        "references/assets-and-keyframes.md",
+        "references/camera-and-vfx.md",
+        "references/continuity-and-timing.md"
+      ],
       "license_evidence": "本次未确认完整许可范围；仅方法参考，不复制正文、源码或受控内容"
     },
     {
@@ -198,7 +211,9 @@
       "adoption": "method_reference_only",
       "copied_text_or_code": false,
       "method": "从任务与条件选择可见动作，攻防回应和衔接；资料检索仅为可选增强",
-      "target_files": ["references/combat-design.md"],
+      "target_files": [
+        "references/combat-design.md"
+      ],
       "license_evidence": "未读取加密资料；仅参考公开README的方法，不复制资料库、正文或源码"
     }
   ],
@@ -210,7 +225,11 @@
       "adoption": "method_reference_only",
       "copied_text_or_code": false,
       "method": "转场方法分类（遮挡、匹配、甩镜、声音先导、介质穿越等）与切点条件写法；去除平台默认参数与首尾帧能力假设",
-      "target_files": ["references/transitions.md", "references/delivery-contract.md", "scripts/combat_plan.py"],
+      "target_files": [
+        "references/transitions.md",
+        "references/delivery-contract.md",
+        "scripts/combat_plan.py"
+      ],
       "license_evidence": "源文件未定位，许可未知；只取方法思路，独立写作，不记录指纹"
     }
   ],

@@ -1,6 +1,6 @@
 # v1.3 双臂对照试用：方法与边界
 
-> 历史记录：本文件对应 v1.3 受控试用，不是当前规则。当前为 v1.5 / JSON 1.4；v1.4 与 v1.5 未重跑该试用。`skill-manifest.json` 只记录 v1.3 当时的指纹；之后新增 `window-planning.md` 并改动多份参考，`freeze.py --check` 会报更大漂移，属预期。目录读法见 [../README.md](../README.md)。
+> 历史记录：本文件对应 v1.3 受控试用，不是当前规则。当前为 v2.0 / JSON 1.4（只接受 1.4）；v1.4、v1.5、v2.0 均未重跑该试用。`skill-manifest.json` 只记录 v1.3 当时的指纹；之后新增 `window-planning.md` 并改动多份参考，`freeze.py --check` 会报更大漂移，属预期。目录读法见 [../README.md](../README.md)。
 
 ## 为什么做这个
 

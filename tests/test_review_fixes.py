@@ -1,10 +1,8 @@
-"""Regressions for the v1.4 review: crash paths, migrate cleanup, ID/timecode scanning and CLI behaviour."""
+"""Regressions for the 1.4 review: crash paths, ID/timecode scanning and CLI behaviour."""
 
 import copy
 import io
 import json
-from pathlib import Path
-import tempfile
 import unittest
 from unittest import mock
 
@@ -87,22 +85,16 @@ class ReviewFixTests(unittest.TestCase):
         self.assertNotIn("之间的转场至下一镜", video)
         self.assertEqual("0", plan._time(-0.0000001))
 
-    def test_migrate_failure_leaves_no_file(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            source = Path(tmp) / "old.json"
-            source.write_text(json.dumps(make_craft_project(), ensure_ascii=False), encoding="utf-8")
-            target = Path(tmp) / "new.json"
-            broken = make_craft_project()
-            broken["title"] = "\ud800坏标题"
-            with mock.patch.object(plan, "load_project", return_value=broken), mock.patch("sys.stdout", io.StringIO()):
-                self.assertEqual(1, plan.main(["migrate", str(source), "--out", str(target)]))
-            self.assertFalse(target.exists())
-            with mock.patch("sys.stdout", io.StringIO()):
-                self.assertEqual(0, plan.main(["migrate", str(source), "--out", str(target)]))
+    def test_migrate_command_is_gone(self):
+        self.assertFalse(hasattr(plan, "migrate"))
+        with mock.patch("sys.stderr", io.StringIO()):
+            with self.assertRaises(SystemExit) as caught:
+                plan.main(["migrate", "missing.json"])
+            self.assertEqual(2, caught.exception.code)
 
     def test_argument_errors_exit_two_before_loading(self):
         with mock.patch("sys.stderr", io.StringIO()):
-            for argv in (["export", "missing.json"], ["migrate", "missing.json"], ["validate", "missing.json", "--out", "x"]):
+            for argv in (["export", "missing.json"], ["validate", "missing.json", "--out", "x"]):
                 with self.subTest(argv=argv), self.assertRaises(SystemExit) as caught:
                     plan.main(argv)
                 self.assertEqual(2, caught.exception.code)

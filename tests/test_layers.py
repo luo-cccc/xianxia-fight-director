@@ -1,19 +1,16 @@
-"""1.3 checks: signature effects, form changes, parallel action lines, transitions and migration."""
+"""1.4 checks: signature effects, form changes, parallel action lines and transitions."""
 
 import copy
-import json
 from pathlib import Path
-import tempfile
 import unittest
-from unittest import mock
 
-from test_combat_plan import make_craft_project, make_project, plan
+from test_combat_plan import make_craft_project, plan
 
 
 def make_layered_project():
     """1.3：在 1.2 编舞要求之上登记签名特效、形态切换与转场（单动作线）。"""
     project = make_craft_project()
-    project["schema_version"] = "1.3"
+    project["schema_version"] = "1.4"
     project["assets"].append({"id": "hero_form", "kind": "character", "name": "覆鳞剑修",
                               "anchors": ["剑修稳定锚点", "剑身与右臂覆青鳞"], "states": [],
                               "image_prompt": "覆鳞剑修资产图"})
@@ -48,7 +45,7 @@ def make_layered_project():
 def make_tracked_project():
     """1.3：世界线与内景线并行；决胜拍发生在内景，外层同时登记身体状态。"""
     project = make_craft_project()
-    project["schema_version"] = "1.3"
+    project["schema_version"] = "1.4"
     project["tracks"] = [
         {"id": "line_world", "kind": "world", "name": "石台", "time_relation": "成片时间即世界时间"},
         {"id": "line_inner", "kind": "inner", "name": "剑修识海",
@@ -80,12 +77,12 @@ class LayeredTests(unittest.TestCase):
         self.assertEqual([], plan.validate(self.project))
         self.assertEqual([], plan.validate(self.tracked))
 
-    def test_older_versions_reject_layer_fields(self):
-        for key in plan.LAYER_FIELDS:
+    def test_only_one_four_is_accepted(self):
+        for version in ("1.1", "1.2", "1.3", "1.5"):
             changed = make_craft_project()
-            changed[key] = []
-            self.assertTrue(any("仅 1.3 支持该字段" in x for x in plan.validate(changed)), key)
-        self.rejects(lambda p: p["beats"][0].update(track="x"), "未知字段", make_craft_project())
+            changed["schema_version"] = version
+            self.assertTrue(any("只接受 schema_version" in x for x in plan.validate(changed)), version)
+        self.assertEqual([], plan.validate(self.project))
 
     def test_vfx_rules(self):
         self.rejects(lambda p: p["vfx"][0].update(owner="nobody"), "特效必须有归属")
@@ -208,39 +205,6 @@ class LayeredTests(unittest.TestCase):
         for path in sorted(Path(__file__).resolve().parents[1].glob("examples/*/0*.md")):
             for pair in ("。。", "。；", "；。"):
                 self.assertNotIn(pair, path.read_text(encoding="utf-8"), str(path))
-
-    def test_migrate(self):
-        migrated, todo = plan.migrate(make_craft_project())
-        self.assertEqual("1.4", migrated["schema_version"])
-        self.assertEqual([], plan.validate(migrated))
-        self.assertEqual(list(plan.MIGRATION_TODO), todo)
-        for key in plan.LAYER_FIELDS:
-            self.assertNotIn(key, migrated)
-        self.assertNotIn(plan.WINDOW_PLAN, migrated)
-        with self.assertRaises(ValueError):
-            plan.migrate(make_project())
-        upgraded, window_todo = plan.migrate(self.project)
-        self.assertEqual("1.4", upgraded["schema_version"])
-        self.assertEqual([], plan.validate(upgraded))
-        self.assertEqual(list(plan.WINDOW_MIGRATION_TODO), window_todo)
-        with self.assertRaises(ValueError):
-            plan.migrate(upgraded)
-        broken = make_craft_project()
-        broken["shots"][0]["light"] = ""
-        with self.assertRaises(ValueError):
-            plan.migrate(broken)
-
-    def test_migrate_cli_never_overwrites(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            source = Path(tmp) / "old.json"
-            source.write_text(json.dumps(make_craft_project(), ensure_ascii=False), encoding="utf-8")
-            target = Path(tmp) / "new.json"
-            with mock.patch("sys.stdout"):
-                self.assertEqual(0, plan.main(["migrate", str(source), "--out", str(target)]))
-                self.assertEqual("1.4", plan.load_project(target)["schema_version"])
-                self.assertEqual(1, plan.main(["migrate", str(source), "--out", str(target)]))
-                self.assertEqual(1, plan.main(["migrate", str(source), "--out", str(source)]))
-            self.assertEqual("1.2", plan.load_project(source)["schema_version"])
 
 
 if __name__ == "__main__":

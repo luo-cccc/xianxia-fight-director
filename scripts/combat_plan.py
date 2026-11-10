@@ -2,7 +2,6 @@
 """Validate and render a platform-independent single-battle plan."""
 
 import argparse
-import copy
 import json
 import math
 import os
@@ -20,7 +19,7 @@ EXECUTION_TIME = re.compile(r"[0-9]+(?:\.[0-9]+)?\s*秒|(?<![0-9])[0-9]{1,2}(?:[
 KINDS = {"character", "creature", "scene", "prop", "formation", "manifestation"}
 ACTORS = {"character", "creature", "manifestation"}
 ROOT = {"schema_version", "title", "duration_sec", "aspect_ratio", "style", "assumptions", "constraints", "design", "assets", "scene", "beats", "shots", "segments", "keyframes"}
-VERSIONS = ("1.1", "1.2", "1.3", "1.4")
+VERSIONS = ("1.4",)
 MARKS = ("pivotal", "breath", "adaptation")
 ROLES = {"single", "prep", "contact", "result", "handoff"}
 RISKS = {"low", "high"}
@@ -233,21 +232,9 @@ def validate(project):
         return errors
     version = project["schema_version"]
     if version not in VERSIONS:
-        fail("schema_version", "仅支持字符串版本 1.1、1.2、1.3 或 1.4；请升级旧版数据并编写镜头 execution 与段 prompt_context，不自动迁移自由文本")
+        fail("schema_version", "只接受 schema_version \"1.4\"；1.0–1.3 旧存档与其它版本值均不兼容，也不提供迁移")
         return errors
-    craft = version in ("1.2", "1.3", "1.4")
-    layered = version in ("1.3", "1.4")
-    windowed = version == "1.4"
-    if not craft:
-        for key in ("cost", "knowledge"):
-            if key in project:
-                fail(key, "仅 1.2 支持该字段（1.3、1.4 继承）；1.1 数据不得混入 1.2 字段")
-    if not layered:
-        for key in LAYER_FIELDS:
-            if key in project:
-                fail(key, "仅 1.3 支持该字段（1.4 继承）；旧版数据须先用 migrate 升级到 1.4 再登记")
-    if not windowed and WINDOW_PLAN in project:
-        fail(WINDOW_PLAN, "仅 1.4 支持生成窗口规划；1.3 数据须先用 migrate 升级到 1.4")
+    craft = layered = windowed = True
     for key in ("title", "aspect_ratio", "style"):
         text(project[key], key)
     duration_ok = number(project["duration_sec"], "duration_sec")
@@ -1594,56 +1581,13 @@ def export_bundle(project, target):
     return target
 
 
-LAYER_MIGRATION_TODO = (
-    "需要并行意识空间（内景、识海、梦境、幻阵）时登记 tracks，并为每个节拍与镜头写 track、为内景镜头写 outer_state",
-    "为反复出现或承担叙事功能的特效登记 vfx：归属、层级、尺度、功能、外观、生命周期、支出与制作路线",
-    "存在变身、法相、化形时登记 forms：前后两套资产、共享身份锚点、遮挡阶梯、代价、持续与退出；所在节拍须为 pivotal",
-    "只为需要被记住的空间或状态跳变登记 transitions；其余切点保持硬切",
-)
-WINDOW_MIGRATION_TODO = (
-    "为每场登记 window_plan：先标关联簇与切点候选，再定窗口；不默认任何时长上限",
-    "按用户声明或已核实的平台能力填 capability；上限未知时省略 max_window_sec，用切点阶梯",
-    "为每个内部边界补候选与共用 handoff 帧；为高风险窗补保底构图与非空降级切点",
-    "跨界的不可逆代价、所知、世界内特效、形态、痕迹与动作线写进 carries；窗口状态与接缝包文本不得含时码或内部 ID",
-)
-MIGRATION_TODO = LAYER_MIGRATION_TODO + WINDOW_MIGRATION_TODO
-
-
-def migrate(project):
-    """1.2/1.3 → 1.4 结构迁移：只改版本号，不生成任何自由文本。返回新数据与需手写清单。"""
-    errors = validate(project)
-    if errors:
-        raise ValueError("源数据未通过校验，先修复再迁移：\n" + "\n".join(errors))
-    version = project["schema_version"]
-    if version == "1.4":
-        raise ValueError("已是 1.4，无需迁移")
-    if version not in ("1.2", "1.3"):
-        raise ValueError("migrate 只接受 1.2 或 1.3 数据；1.1 须先手写 1.2 的编舞字段（light、risk、role、marks、attrition、cost）")
-    result = copy.deepcopy(project)
-    if version == "1.2":
-        result["schema_version"] = "1.3"
-        errors = validate(result)
-        if errors:
-            raise ValueError("迁移到 1.3 未通过校验：\n" + "\n".join(errors))
-        todo = list(MIGRATION_TODO)
-    else:
-        todo = list(WINDOW_MIGRATION_TODO)
-    result["schema_version"] = "1.4"
-    errors = validate(result)
-    if errors:
-        raise ValueError("迁移结果未通过校验：\n" + "\n".join(errors))
-    return result, todo
-
-
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("validate", "export", "migrate"))
+    parser.add_argument("command", choices=("validate", "export"))
     parser.add_argument("project", type=Path)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args(argv)
     # 参数错误先于读取文件报告，退出码 2
-    if args.command == "migrate" and args.out is None:
-        parser.error("migrate 需要 --out，且不覆盖源文件或已存在文件")
     if args.command == "export" and args.out is None:
         parser.error("export 需要 --out")
     if args.command == "validate" and args.out is not None:
@@ -1653,24 +1597,6 @@ def main(argv=None):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     try:
         project = load_project(args.project)
-        if args.command == "migrate":
-            migrated, todo = migrate(project)
-            # 先在内存完成序列化与编码，失败时不留下空目标文件
-            payload = (json.dumps(migrated, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode("utf-8")
-            target = args.out.absolute()
-            if target.exists() or target.is_symlink():
-                raise FileExistsError(f"目标已存在，不覆盖: {target}")
-            if not target.parent.is_dir():
-                raise FileNotFoundError(f"父目录不存在: {target.parent}")
-            with open(target, "xb") as handle:
-                try:
-                    handle.write(payload)
-                except BaseException:
-                    handle.close()
-                    target.unlink()
-                    raise
-            print(json.dumps({"structural_status": "pass", "semantic_status": "needs_review", "output": str(target), "schema_version": "1.4", "manual": todo}, ensure_ascii=False, indent=2))
-            return 0
         errors = validate(project)
         if errors:
             print(json.dumps({"structural_status": "fail", "semantic_status": "needs_review", "errors": errors}, ensure_ascii=False, indent=2))
