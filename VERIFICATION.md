@@ -11,13 +11,14 @@ python -X utf8 -B -m unittest discover -s tests
 for f in examples/*.json; do python scripts/combat_plan.py validate "$f"; done
 ```
 
-81 个测试方法全部通过；五套示例全部 `structural_status: pass`，`semantic_status` 保持 `needs_review`。
+82 个测试方法全部通过；五套示例全部 `structural_status: pass`，`semantic_status` 保持 `needs_review`。
 
 | 测试文件 | 覆盖 |
 | --- | --- |
 | `tests/test_combat_plan.py`（45） | 严格读取（重复键、非法常量、编码）、ID 与引用、时间轴覆盖、并行与依赖、cues、双层状态交接、关键帧、导出不覆盖与失败清理、执行稿隔离；只接受 1.4；编舞字段九条可查后果（`CraftTests`）；已发布示例目录与当前 `render` 逐字一致 |
 | `tests/test_layers.py`（8） | 1.4 动作线、签名特效、形态切换、转场的结构规则；非 1.4 版本被拒绝；渲染分配与执行稿不含 ID；无重复标点 |
 | `tests/test_review_fixes.py`（10） | 审查回归：畸形段界不崩溃、短 ID 按边界扫描、比例不误判为时码而全角秒码被拦、动作线与特效名称及资产文本受检、额外 handoff 帧允许、转折三帧严格分组递增、错误不连锁、渲染修正、`migrate` 命令已移除、参数错误先退出 2 |
+| `tests/test_behavior_v20.py`（1） | v2.0 单臂行为试用：`project.json` 校验通过，`bundle/` 七文件与当前 `render` 逐字一致 |
 | `tests/test_window_plan.py`（18） | 1.4 窗口连续覆盖、簇同窗、边界候选、C 级风险与降级、入口出口帧共用、上限与簇跨度、接缝包对账、动作线切换、形态跨界、跨窗呈现层转场与特效、镜中边界 cue 对齐与裁剪、窗口文本洁净、03/04/05/06 渲染与 05 不含 ID、旧版本被拒绝 |
 
 ## 五套示例
@@ -48,6 +49,12 @@ for f in examples/*.json; do python scripts/combat_plan.py validate "$f"; done
 - 导出 Markdown 在 Windows 写成 CRLF，已统一写 LF；已有文件/目录不覆盖。
 - 登记文本以句号结尾时渲染器再接标点，产生“。。”，已统一去句末标点并加回归测试。
 
+## v2.0 行为试用（单臂）
+
+`tests/behavior/v2.0/` 用同一 25 秒雪桥请求、v2.0 规则重跑一次：JSON 1.4、七镜三段三窗、转折三帧、两处交接帧、五项不可逆代价、一处信息差；`validate` 与 `export` 均通过，bundle 七文件齐全。方法与请求见 [method.md](tests/behavior/v2.0/method.md)、[request.md](tests/behavior/v2.0/request.md)，正文见 [response.md](tests/behavior/v2.0/response.md) 与 [bundle](tests/behavior/v2.0/bundle/)。
+
+这是**单臂重跑**，不是盲测或双盲对照；不能据此声称 v2.0 产出优于 v1.3。未生成、查看或听辨媒体。自审的弱点（雪雾遮声后的回枪依据、左臂失力后的托举可读性、踝伤与滑行路线）见 [review.md](tests/behavior/v2.0/review.md)。
+
 ## v1.3 行为证据（历史，仍有效的结论）
 
 历史记录读法与指纹漂移说明见 [tests/behavior/README.md](tests/behavior/README.md)。记录保存在 `tests/behavior/v1.3/`，方法见 [method.md](tests/behavior/v1.3/method.md)，盲评见 [blind-review.md](tests/behavior/v1.3/blind-review.md)。
@@ -65,8 +72,8 @@ for f in examples/*.json; do python scripts/combat_plan.py validate "$f"; done
 
 ## 仍不能证明的事
 
-- v1.3 之后（含 v1.4、v1.5、v2.0）没有再做对照试用；后续新增参考是否真的改变产出，未验证。
-- 1.4 的窗口规划是否真的降低接缝失败、10/15/30 秒阶梯是否可执行：没有实际生成或中段返修观察。
+- v1.3 之后没有再做双盲对照；v2.0 只有一次单臂重跑，证明当前规则与工具能产出并导出 1.4 三窗工程，不证明规则优越或生成可执行。
+- 1.4 的窗口规划是否真的降低接缝失败、10/6/30 秒阶梯是否可执行：没有实际生成或中段返修观察。
 - 示例中的“上限三十秒”只是用户声明前提，不是平台核实；其他模型的实际窗口、任意起点、首尾帧、窗口内剪辑与音频能力未核。
 - 云茧遮挡化形、识海极简画面、剑光亮度分级能否被生成端稳定执行。
 - `vfx-production.md` 的难度分级是经验判断、未实测。

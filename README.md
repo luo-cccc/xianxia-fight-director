@@ -66,7 +66,7 @@ references/              按需读取的方法参考（见下表）
 examples/*.json          五套原创完整工作案例（JSON 1.4）
 examples/*/              由对应 JSON 导出的六件套与项目快照
 scripts/combat_plan.py   结构校验与导出（Python 3.10+，仅标准库；只接受 JSON 1.4）
-tests/                   回归测试；tests/behavior/ 保存历史行为试用记录（非当前验收）
+tests/                   回归测试；tests/behavior/ 保存行为试用记录（v1.2/v1.3 历史，v2.0 单臂）
 CHANGELOG.md             版本修订记录
 VERIFICATION.md          实际做过的检查与证据范围
 sources.json             参考来源、指纹与采用方式
@@ -121,7 +121,7 @@ python -m unittest discover -s tests -v
 
 - `examples/*.json` 是工作存档与源；`examples/*/` 是 `export` 生成的六件套与 `project.json`。不要手改导出目录：改 JSON 后重新导出并替换目录，测试会逐字比对。
 - 当前回归：`python -X utf8 -B -m unittest discover -s tests`；示例校验：`for f in examples/*.json; do python scripts/combat_plan.py validate "$f"; done`。
-- `tests/behavior/` 是历史行为证据，不是当前验收；读法与指纹漂移说明见 [tests/behavior/README.md](tests/behavior/README.md)。
+- `tests/behavior/v2.0/` 是当前单臂重跑（同一 25 秒雪桥请求，JSON 1.4 三窗）；`v1.2/`、`v1.3/` 是历史证据，不是当前验收。读法与指纹漂移说明见 [tests/behavior/README.md](tests/behavior/README.md)。
 - 修改参考后跑 `freeze.py --check` 会报 v1.3 指纹漂移，这是预期；不要重新冻结历史指纹。
 - 提交前确认 `git status` 只包含源 JSON、对应导出文件、脚本、参考与测试，不提交 `__pycache__`、临时导出目录或媒体缓存。
 
